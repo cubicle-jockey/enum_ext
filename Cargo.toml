@@ -1,7 +1,10 @@
 [package]
 name = "enum_ext"
 version = "0.1.0"
+authors = ["cubicle-jockey <cubicle-jockey@users.noreply.github.com>"]
 edition = "2021"
+exclude = ["target", "Cargo.lock"]
+license = "MIT OR Apache-2.0"
 
 [lib]
 proc-macro = true
