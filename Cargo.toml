@@ -1,6 +1,6 @@
 [package]
 name = "enum_ext"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["cubicle-jockey <cubicle-jockey@users.noreply.github.com>"]
 keywords = ["enum", "macro", "discriminant", "procedural"]
 categories = ["rust-patterns", "development-tools"]
