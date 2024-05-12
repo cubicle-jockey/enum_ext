@@ -10,13 +10,13 @@ mod proc;
 /// ## Enhancements
 /// - `list()`: Returns an array of all variants in the enum.
 /// - `count()`: Returns the count of variants in the enum.
-/// - `ordinal(&self)`: Returns the ordinal of a variant.
+/// - `ordinal()`: Returns the ordinal of a variant.
 /// - `Iter()`: Returns an iterator over the variants in the enum.
 /// - Conversion methods `from_<IntType>(val)` and `to_<IntType>(&self)`, if specified in the attributes.
-/// - `pascal_spaced(&self)`: Returns the variant name in spaced PascalCase. InQA becomes "In QA".
-/// - `from_pascal_spaced(s: &str)`: Returns the variant from the spaced PascalCase name. "In QA" becomes InQA.
-/// - `from_ordinal(ord: usize)`: Returns the variant from the ordinal.
-/// - `ref_from_ordinal(ord: usize)`: Returns a reference to the variant from the ordinal.
+/// - `pascal_spaced()`: Returns the variant name in spaced PascalCase. InQA becomes "In QA".
+/// - `from_pascal_spaced()`: Returns the variant from the spaced PascalCase name. "In QA" becomes InQA.
+/// - `from_ordinal()`: Returns the variant from the ordinal.
+/// - `ref_from_ordinal()`: Returns a reference to the variant from the ordinal.
 ///
 /// ## Attributes
 /// - `#[enum_def(IntType = "i32")]`: Specifies the integer type for conversion methods.
@@ -80,10 +80,10 @@ mod proc;
 /// ```
 ///
 /// ## Failures
-/// Example of a failure case (complex variants are not supported):
+/// Example of a failure case (complex variants are not yet supported):
 /// ```text
-/// # use crate::enum_ext::enum_extro;
-/// enum_extro!(
+/// # use crate::enum_ext::enum_ext;
+/// enum_ext!(
 ///     #[derive(Debug, Clone)]
 ///     pub enum FailureEnum {
 ///         A(usize),
@@ -91,7 +91,7 @@ mod proc;
 ///         C,
 ///     }
 /// );
-/// // error: Variant error: Unsupported variant 'A(usize)': complex variants are not supported by enum_extro
+/// // error: Variant error: Unsupported variant 'A(usize)': complex variants are not yet supported by enum_ext
 /// ```
 
 #[proc_macro]

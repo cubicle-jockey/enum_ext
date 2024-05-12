@@ -290,7 +290,7 @@ fn parse_variants(
         if !variant.fields.is_empty() {
             // Variant has additional data (like `A(String)`)
             return Err(EnumMacroError::VariantError(format!(
-                "Unsupported variant '{}': complex variants are not supported by enum_ext",
+                "Unsupported variant '{}': complex variants are not yet supported by enum_ext",
                 variant.to_token_stream()
             )));
         }
@@ -501,11 +501,11 @@ fn append_int_fns(
 /// ```
 /// use enum_ext::enum_ext;
 /// enum_ext!(
-///     #[enum_def(IntType = "i32")]
+///     #[enum_def(IntType = "i32")]  // <- Specify the discriminant type
 ///     #[derive(Debug, Default, Clone, PartialEq)]
 ///     pub enum AdvancedEnum {
 ///         #[default]
-///         A = 1,
+///         A = 1, // <- do not specify the discriminant type here
 ///         B = 2,
 ///         C = 3,
 ///     }
@@ -521,7 +521,7 @@ fn append_int_fns(
 /// ```
 ///
 /// ## Failures
-/// Example of a failure case (complex variants are not supported):
+/// Example of a failure case (complex variants are not yet supported):
 /// ```text
 /// # use crate::enum_ext::enum_extro;
 /// enum_extro!(
@@ -532,7 +532,7 @@ fn append_int_fns(
 ///         C,
 ///     }
 /// );
-/// // error: Variant error: Unsupported variant 'A(usize)': complex variants are not supported by enum_extro
+/// // error: Variant error: Unsupported variant 'A(usize)': complex variants are not yet supported by enum_ext
 /// ```
 
 pub fn enum_ext(input: TokenStream) -> TokenStream {
