@@ -14,7 +14,7 @@ retrieving a list of variants, counting variants, and converting between discrim
 - `list()`: Returns an array of all variants in the enum.
 - `count()`: Returns the count of variants in the enum.
 - `ordinal()`: Returns the ordinal of a variant.
-- `Iter()`: Returns an iterator over the variants in the enum.
+- `iter()`: Returns an iterator over the variants in the enum.
 - Conversion methods `from_<IntType>(val)` and `to_<IntType>(&self)`, if specified in the attributes.
 - `pascal_spaced(&self)`: Returns the variant name in spaced PascalCase. InQA becomes "In QA".
 - `from_pascal_spaced()`: Returns the variant from the spaced PascalCase name. "In QA" becomes InQA.
