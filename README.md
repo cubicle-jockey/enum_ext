@@ -1,5 +1,10 @@
 # Enum Extension Library
 
+[![Rust](https://github.com/cubicle-jockey/enum_ext/actions/workflows/rust.yml/badge.svg)](https://github.com/cubicle-jockey/enum_ext/actions/workflows/rust.yml)
+[![Dependency Review](https://github.com/cubicle-jockey/enum_ext/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/cubicle-jockey/enum_ext/actions/workflows/dependency-review.yml)
+[![Crate](https://img.shields.io/crates/v/enum_ext.svg)](https://crates.io/crates/enum_ext)
+[![API](https://docs.rs/enum_ext/badge.svg)](https://docs.rs/enum_ext)
+
 This Rust crate provides a procedural macro `enum_ext!` that enhances Rust enums with additional methods and
 conversions. It simplifies working with enums by automatically generating utility methods for common tasks such as
 retrieving a list of variants, counting variants, and converting between discriminates and integer types.
