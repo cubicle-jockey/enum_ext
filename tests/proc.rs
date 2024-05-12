@@ -180,6 +180,62 @@ fn discriminant_2() {
 }
 
 #[test]
+fn discriminant_neg1() {
+    enum_ext! {
+        #[enum_def(IntType = "i32")]
+        #[derive(Debug, PartialEq)]
+        pub enum Variant {
+            A = -10,
+            B = -20,
+            C = -30,
+        }
+    }
+
+    assert_eq!(Variant::A as i32, -10);
+    assert_eq!(Variant::B as i32, -20);
+    assert_eq!(Variant::C as i32, -30);
+
+    assert_eq!(Variant::A.as_i32(), -10);
+    assert_eq!(Variant::B.as_i32(), -20);
+    assert_eq!(Variant::C.as_i32(), -30);
+
+    assert_eq!(Variant::A.ordinal(), 0);
+    assert_eq!(Variant::B.ordinal(), 1);
+    assert_eq!(Variant::C.ordinal(), 2);
+
+    let mut ord = 0;
+    for x in Variant::list() {
+        assert_eq!(x.ordinal(), ord);
+        ord += 1;
+    }
+
+    for (i, v) in Variant::iter().enumerate() {
+        match i {
+            0 => assert_eq!(v, &Variant::A),
+            1 => assert_eq!(v, &Variant::B),
+            2 => assert_eq!(v, &Variant::C),
+            _ => unreachable!(),
+        }
+    }
+
+    for x in Variant::list() {
+        assert_eq!(Some(x.clone()), Variant::from_i32(x.as_i32()));
+    }
+
+    // Clone is required for from_ordinal (always is present for variants)
+    assert_eq!(Variant::from_ordinal(0), Some(Variant::A));
+    assert_eq!(Variant::from_ordinal(1), Some(Variant::B));
+    assert_eq!(Variant::from_ordinal(2), Some(Variant::C));
+    assert_eq!(Variant::from_ordinal(3), None);
+
+    // Clone is not present, so we can only get a reference
+    assert_eq!(Variant::ref_from_ordinal(0), Some(&Variant::A));
+    assert_eq!(Variant::ref_from_ordinal(1), Some(&Variant::B));
+    assert_eq!(Variant::ref_from_ordinal(2), Some(&Variant::C));
+    assert_eq!(Variant::ref_from_ordinal(3), None);
+}
+
+#[test]
 fn pascal_spaced() {
     enum_ext! {
         #[derive(Debug, PartialEq)]
