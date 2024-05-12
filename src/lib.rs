@@ -1,5 +1,5 @@
 mod proc;
-//mod derive;
+//mod derive;  future...
 
 /// `enum_ext` is a procedural macro that enhances Rust enums with additional methods and conversions.
 ///
