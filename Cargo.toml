@@ -2,6 +2,11 @@
 name = "enum_ext"
 version = "0.1.0"
 authors = ["cubicle-jockey <cubicle-jockey@users.noreply.github.com>"]
+keywords = ["enum", "macro", "discriminant", "procedural"]
+categories = ["rust-patterns", "development-tools"]
+repository = "https://github.com/cubicle-jockey/enum_ext"
+homepage = "https://github.com/cubicle-jockey/enum_ext"
+description = "procedural macro that enhances enums with additional methods and conversions"
 edition = "2021"
 exclude = ["target", "Cargo.lock"]
 license = "MIT OR Apache-2.0"
