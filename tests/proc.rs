@@ -110,7 +110,7 @@ fn discriminant_1() {
         assert_eq!(Some(x.clone()), Variant::from_usize(x.as_usize()));
     }
 
-    // Clone is required for from_ordinal (always is present for variants)
+    // Clone is required for from_ordinal (always is present for discriminants)
     assert_eq!(Variant::from_ordinal(0), Some(Variant::A));
     assert_eq!(Variant::from_ordinal(1), Some(Variant::B));
     assert_eq!(Variant::from_ordinal(2), Some(Variant::C));
@@ -166,7 +166,7 @@ fn discriminant_2() {
         assert_eq!(Some(x.clone()), Variant::from_u8(x.as_u8()));
     }
 
-    // Clone is required for from_ordinal (always is present for variants)
+    // Clone is required for from_ordinal (always is present for discriminants)
     assert_eq!(Variant::from_ordinal(0), Some(Variant::A));
     assert_eq!(Variant::from_ordinal(1), Some(Variant::B));
     assert_eq!(Variant::from_ordinal(2), Some(Variant::C));
@@ -222,7 +222,7 @@ fn discriminant_neg1() {
         assert_eq!(Some(x.clone()), Variant::from_i32(x.as_i32()));
     }
 
-    // Clone is required for from_ordinal (always is present for variants)
+    // Clone is required for from_ordinal (always is present for discriminants)
     assert_eq!(Variant::from_ordinal(0), Some(Variant::A));
     assert_eq!(Variant::from_ordinal(1), Some(Variant::B));
     assert_eq!(Variant::from_ordinal(2), Some(Variant::C));
