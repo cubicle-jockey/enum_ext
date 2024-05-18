@@ -130,11 +130,11 @@ fn main() {
 }
 ```
 
-## Installation
+## Getting Started
 
 Add the following to your Cargo.toml file:
 
 ```toml
 [dependencies]
-enum_ext = "0.1.2"
+enum_ext = "0.1.3"
 ```
