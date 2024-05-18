@@ -540,7 +540,7 @@ pub fn enum_ext(input: TokenStream) -> TokenStream {
     // input is in the form of:
     // #[derive()], - optional
     // pub enum MyEnum {
-    //     A = 1,  - variant value is optional
+    //     A = 1,  - discriminant value is optional
     //     B = 2,
     //     C = 3,
     // }

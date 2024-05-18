@@ -1,3 +1,6 @@
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+struct ReadmeDocTests;
 mod proc;
 //mod derive;  future...
 
@@ -106,7 +109,3 @@ pub fn enum_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
  */
-
-#[doc = include_str!("../README.md")]
-#[cfg(doctest)]
-struct ReadmeDocTests;
