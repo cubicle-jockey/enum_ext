@@ -478,61 +478,69 @@ fn append_int_fns(
 /// ```
 /// # use enum_ext::enum_ext;
 /// enum_ext!(
-///     #[derive(Debug, Clone)]
+///     #[derive(Debug, Clone, PartialEq)]
 ///     pub enum SimpleEnum {
 ///         A,
 ///         B,
 ///         C,
 ///     }
 /// );
-///
+/// // With this, you can now use the generated methods
+/// // on SimpleEnum:
 /// let x = SimpleEnum::B;
-/// assert_eq!(x.ordinal(), 1);
+/// assert_eq!(x.ordinal(), 1); // B is the second variant,
+///                             // so its ordinal is 1
 ///
 /// let mut count = 0;
+///
+/// // enum_ext gives enums an iterator and variants can be
+/// // iterated over
 /// for x in SimpleEnum::iter() {
+///     // ordinal() returns the ordinal of the variant
 ///     let i = x.ordinal();
 ///     assert_eq!(i, count);
 ///     count += 1;
 /// }
-/// ```
 ///
-/// Advanced usage with `enum_def` attribute:
-/// ```
-/// use enum_ext::enum_ext;
+/// // enums also get a list method that returns an array
+/// // of all variants
+/// let list = SimpleEnum::list();
+/// assert_eq!(list, [SimpleEnum::A, SimpleEnum::B, SimpleEnum::C]);
+///
+/// // pascal_spaced() examples
 /// enum_ext!(
-///     #[enum_def(IntType = "i32")]  // <- Specify the discriminant type
-///     #[derive(Debug, Default, Clone, PartialEq)]
-///     pub enum AdvancedEnum {
+///     #[derive(Debug, Clone, Default, PartialEq)]
+///     pub enum TicketStatus {
 ///         #[default]
-///         A = 1, // <- do not specify the discriminant type here
-///         B = 2,
-///         C = 3,
+///         Open,
+///         InDev,
+///         Completed,
+///         InQA,
+///         CodeReview,
+///         FinalQA,
+///         FinalCodeReview,
+///         Accepted,
+///         Closed,
 ///     }
 /// );
 ///
-/// for x in AdvancedEnum::iter() {
-///     let i = x.as_i32();
-///     let v = AdvancedEnum::from_i32(i).unwrap();      
-///     assert_eq!(i, v.as_i32());
-///     assert_eq!(*x, v); // <-- This comparison requires that PartialEq be derived
-/// }
+/// // enums now have a `pascal_spaced` method that returns the
+/// // variant name in spaced PascalCase. This is useful for
+/// // displaying enum variants in a user-friendly
+/// // format (e.g., in a UI).
+/// // One example usage is converting InQA to "In QA" for
+/// // display on a web page.
+/// let status = TicketStatus::InQA;
+/// assert_eq!(status.pascal_spaced(), "In QA");
 ///
-/// ```
-///
-/// ## Failures
-/// Example of a failure case (complex variants are not yet supported):
-/// ```text
-/// # use crate::enum_ext::enum_extro;
-/// enum_extro!(
-///     #[derive(Debug, Clone)]
-///     pub enum FailureEnum {
-///         A(usize),
-///         B(String),
-///         C,
-///     }
-/// );
-/// // error: Variant error: Unsupported variant 'A(usize)': complex variants are not yet supported by enum_ext
+/// // enums also get a `from_pascal_spaced` method that returns
+/// // the variant from the spaced PascalCase name. This is
+/// // useful for converting user-friendly format back to an
+/// // enum variant.
+/// // This is the reverse of the example above,
+/// // converting "In QA" back to an enum.
+/// let status2 = TicketStatus::from_pascal_spaced("In QA").unwrap();
+/// assert_eq!(status2, TicketStatus::InQA);
 /// ```
 
 pub fn enum_ext(input: TokenStream) -> TokenStream {
