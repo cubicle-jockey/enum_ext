@@ -39,7 +39,7 @@ Attributes are optional and used to customize the generated methods.
   integer types like `i32`, `u32`, `i64`, etc. If this attribute is not specified, `usize` is used as the default.
     * **Note**: If the enum has discriminant values, `#[derive(Clone)]` is added to the enum (if not already present).
 
-Assigning attributes vary slightly depending on the macro used and currently
+Assigning attributes vary slightly depending on the macro used.
 
 When using `enum_extend`, the attribute is applied directly in the tag:
 
