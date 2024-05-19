@@ -176,6 +176,68 @@ fn main() {
 }
 ```
 
+Additional utility methods are generated for the enum variants:
+
+```rust
+use enum_ext::enum_extend;
+
+#[enum_extend(IntType = "i32")]
+#[derive(Debug, PartialEq)]
+pub enum DevelopmentStatus {
+    InDev = 10,
+    InQA = 20,
+    CodeReview = 30,
+    FinalQA = 40,
+    FinalCodeReview = 50,
+    Accepted = 60,
+    Closed = 70,
+}
+
+fn main() {
+    // Using list()
+    let variants = DevelopmentStatus::list();
+    assert_eq!(variants,
+               [DevelopmentStatus::InDev,
+                   DevelopmentStatus::InQA,
+                   DevelopmentStatus::CodeReview,
+                   DevelopmentStatus::FinalQA,
+                   DevelopmentStatus::FinalCodeReview,
+                   DevelopmentStatus::Accepted,
+                   DevelopmentStatus::Closed]);
+
+    // Using count()
+    let count = DevelopmentStatus::count();
+    assert_eq!(count, 7);
+
+    // Using ordinal()
+    let ordinal = DevelopmentStatus::CodeReview.ordinal();
+    assert_eq!(ordinal, 2);  // CodeReview is the third variant, so its ordinal is 2
+    assert_eq!(DevelopmentStatus::from_ordinal(2), Some(DevelopmentStatus::CodeReview));
+
+    // Using iter()
+    for (i, variant) in DevelopmentStatus::iter().enumerate() {
+        assert_eq!(i, variant.ordinal());
+    }
+
+    // Using from_i32() and as_i32()
+    let variant = DevelopmentStatus::from_i32(20).unwrap();
+    assert_eq!(variant, DevelopmentStatus::InQA);
+    assert_eq!(variant.as_i32(), 20);
+
+    // Using pascal_spaced() method that returns the variant name in spaced PascalCase.
+    // This is useful for displaying enum variants in a user-friendly format (e.g., in a UI).
+    // One example usage is converting InQA to "In QA" for display on a web page.
+    let status = DevelopmentStatus::InQA;
+    assert_eq!(status.pascal_spaced(), "In QA");
+
+    // Using from_pascal_spaced() method that returns the variant from the spaced PascalCase name.
+    // This is useful for converting user-friendly format back to an enum variant.
+    // This is the reverse of the example above, converting "In QA" back to an enum.
+    let status2 = DevelopmentStatus::from_pascal_spaced("In QA").unwrap();
+    assert_eq!(status2, DevelopmentStatus::InQA);
+}
+```
+
 ## Getting Started
 
 Add the following to your Cargo.toml file:
