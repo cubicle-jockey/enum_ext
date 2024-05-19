@@ -5,9 +5,13 @@
 [![Crate](https://img.shields.io/crates/v/enum_ext.svg)](https://crates.io/crates/enum_ext)
 [![API](https://docs.rs/enum_ext/badge.svg)](https://docs.rs/enum_ext)
 
-This Rust crate provides a procedural macro `enum_ext!` that enhances Rust enums with additional methods and
+This Rust crate provides `procedural` and `attribute` macros that enhance Rust enums with additional methods and
 conversions. It simplifies working with enums by automatically generating utility methods for common tasks such as
-retrieving a list of variants, counting variants, and converting between discriminates and integer types.
+retrieving a list of variants, counting variants, and converting between discriminants and integer types.
+
+See the `enum_ext!` and `#[enum_extend]` macro examples below for more information.
+
+Both macros generate the same utility methods so you can choose the one that best fits your coding style.
 
 ## Utility Functions
 
@@ -24,15 +28,90 @@ retrieving a list of variants, counting variants, and converting between discrim
 
 ## Attributes
 
-`#[enum_def(IntType = "i32")]`: Specifies the integer type for conversion methods. The generated methods allow
-conversion
-from the specified integer type to an enum variant and vice versa. Supported types include standard Rust integer types
-like `i32`, `u32`, `i64`, etc.<br>
-<b>Note</b>: If the integer type is not specified in the `enum_def` attribute, `usize` is used as the default.<br>
-<b>Note</b>: If the enum
-has discriminant values, `#[derive(Clone)]` is added to the enum (if not already present).
+Attributes are optional and used to customize the generated methods.
+
+* `IntType` is currently the only attribute supported and specifies the discriminant type for conversion methods. The
+  generated methods allow
+  conversion from this type to an enum variant and vice versa. Supported types include standard Rust
+  integer types like `i32`, `u32`, `i64`, etc. If this attribute is not specified, `usize` is used as the default.
+    * **Note**: If the enum has discriminant values, `#[derive(Clone)]` is added to the enum (if not already present).
+
+Assigning attributes vary slightly depending on the macro used and currently
+
+When using `enum_extend`, the attribute is applied directly in the tag:
+
+```rust
+use enum_ext::enum_extend;
+
+// example with no attribute
+#[enum_extend]
+#[derive(Debug, Clone, PartialEq)]
+pub enum Discr1 {
+    A = 10, // <- do not specify a discriminant type here. Usize will be used by default.
+    B = 20,
+    C = 30,
+}
+
+// example with an attribute
+#[enum_extend(IntType = "i32")]  // <- `IntType` is the discriminant type for conversion methods
+#[derive(Debug, Clone, PartialEq)]
+pub enum Discr2 {
+    A = 10,  // <- do not specify a discriminant type here. i32 will be used.
+    B = 20,
+    C = 30,
+}
+
+```
+
+When using `enum_ext!`, the attribute is applied in an `enum_def` parameter to the macro:
+
+```rust
+use enum_ext::enum_ext;
+
+enum_ext!(
+    #[enum_def(IntType = "i32")]  // <- `IntType` is the discriminant type. 
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum AdvancedEnum {
+        A = 10,  // <- do not specify a discriminant type here (10i32 etc)
+        B = 20,
+        C = 30,
+    }
+);
+```
 
 ## Usage
+
+### Using the `#[enum_extend]` Attribute Macro
+
+To use the enum_extend attribute macro, simply include it in your Rust project and apply it to your enum definitions.
+Here's an example:
+
+```rust
+fn main() {
+    use enum_ext::enum_extend;
+
+    #[enum_extend(IntType = "i32")]
+    #[derive(Debug, Default, Clone, PartialEq)]
+    pub enum AdvancedEnum {
+        #[default]
+        A = 10,
+        B = 20,
+        C = 30,
+    }
+
+    for x in AdvancedEnum::iter() {
+        let i = x.as_i32();
+        let v = AdvancedEnum::from_i32(i).unwrap();
+        assert_eq!(i, v.as_i32());
+        assert_eq!(*x, v); // This comparison requires that PartialEq be derived
+    }
+
+    let v = AdvancedEnum::from_i32(20).unwrap();
+    assert_eq!(v, AdvancedEnum::B);
+}
+```
+
+### Using the `enum_ext!` Procedural Macro
 
 To use the `enum_ext!` macro, simply include it in your Rust project and apply it to your enum definitions. Here's an
 example:
@@ -97,44 +176,11 @@ fn main() {
 }
 ```
 
-### Using the `enum_def` Attribute
-
-You can specify the integer type for conversion methods using the enum_def attribute. The generated methods allow
-conversion from the specified integer type to an enum variant and vice versa. Supported types include standard Rust
-integer types like `i32`, `u32`, `i64`, etc.
-
-```rust
-fn main() {
-    use enum_ext::enum_ext;
-
-    enum_ext!(
-        #[enum_def(IntType = "i32")]  // <- Specify the discriminant type
-        #[derive(Debug, Default, Clone, PartialEq)]
-        pub enum AdvancedEnum {
-            #[default]
-            A = 10, // <- do not specify the discriminant type here
-            B = 20,
-            C = 30,
-        }
-    );
-
-    for x in AdvancedEnum::iter() {
-        let i = x.as_i32();
-        let v = AdvancedEnum::from_i32(i).unwrap();
-        assert_eq!(i, v.as_i32());
-        assert_eq!(*x, v); // This comparison requires that PartialEq be derived
-    }
-
-    let v = AdvancedEnum::from_i32(20).unwrap();
-    assert_eq!(v, AdvancedEnum::B);
-}
-```
-
 ## Getting Started
 
 Add the following to your Cargo.toml file:
 
 ```toml
 [dependencies]
-enum_ext = "0.1.3"
+enum_ext = "0.2.0"
 ```
