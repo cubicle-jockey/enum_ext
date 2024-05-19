@@ -247,5 +247,5 @@ Add the following to your Cargo.toml file:
 
 ```toml
 [dependencies]
-enum_ext = "0.2.0"
+enum_ext = "0.2.1"
 ```
