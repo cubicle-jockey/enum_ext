@@ -19,7 +19,7 @@ Both macros generate the same utility methods so you can choose the one that bes
 - `count()`: Returns the count of variants in the enum.
 - `ordinal()`: Returns the ordinal of a variant.
 - `iter()`: Returns an iterator over the variants in the enum.
-- `from_<IntType>(val)` and `to_<IntType>(&self)`, if specified in the attributes.
+- `from_<IntType>(val)` and `as_<IntType>(&self)`, if specified in the attributes.
     - For example, `from_i32(10)`
       and `as_i32()`
       if `IntType = "i32"`, or `from_u32(10)` and `as_u32()` if `IntType = "u32"` etc.

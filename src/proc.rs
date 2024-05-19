@@ -77,7 +77,7 @@ fn process_attributes(
 /// - `count()`: Returns the count of variants in the enum.
 /// - `ordinal()`: Returns the ordinal of a variant.
 /// - `iter()`: Returns an iterator over the variants in the enum.
-/// - `from_<IntType>(val)` and `to_<IntType>(&self)`, if specified in the attributes.
+/// - `from_<IntType>(val)` and `as_<IntType>(&self)`, if specified in the attributes.
 /// - `pascal_spaced(&self)`: Returns the variant name in spaced PascalCase. InQA becomes "In QA".
 /// - `from_pascal_spaced(s: &str)`: Returns the variant from the spaced PascalCase name. "In QA" becomes InQA.
 /// - `from_ordinal(ord: usize)`: Returns the variant from the ordinal.
