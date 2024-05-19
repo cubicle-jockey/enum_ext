@@ -1,16 +1,4 @@
-#[doc = include_str!("../README.md")]
-#[cfg(doctest)]
-struct ReadmeDocTests;
-
-#[doc = include_str!("../PROCS.md")]
-#[cfg(doctest)]
-struct ProcsDocTests;
-
-#[doc = include_str!("../ATTR.md")]
-#[cfg(doctest)]
-struct AttrDocTests;
-
-#[doc = include_str!("../README.md")]
+#![doc=include_str!("../README.md")]
 mod attr;
 mod core;
 mod proc;
@@ -29,3 +17,15 @@ pub fn enum_extend(
 ) -> proc_macro::TokenStream {
     attr::enum_ext(attr, item)
 }
+
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+struct ReadmeDocTests;
+
+#[doc = include_str!("../PROCS.md")]
+#[cfg(doctest)]
+struct ProcsDocTests;
+
+#[doc = include_str!("../ATTR.md")]
+#[cfg(doctest)]
+struct AttrDocTests;
