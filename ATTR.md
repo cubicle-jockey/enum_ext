@@ -20,6 +20,9 @@ Both macros generate the same utility methods so you can choose the one that bes
 - `ordinal()`: Returns the ordinal of a variant.
 - `iter()`: Returns an iterator over the variants in the enum.
 - `from_<IntType>(val)` and `as_<IntType>(&self)`, if specified in the attributes.
+    - For example, `from_i32(10)`
+      and `as_i32()`
+      if `IntType = "i32"`, or `from_u32(10)` and `as_u32()` if `IntType = "u32"` etc.
 - `pascal_spaced()`: Returns the variant name in spaced PascalCase. InQA becomes "In QA".
 - `from_pascal_spaced()`: Returns the variant from the spaced PascalCase name. "In QA" becomes InQA.
 - `from_ordinal()`: Returns the variant from the ordinal.
