@@ -1,68 +1,21 @@
-use super::core::{check_derive_traits, parse_variants, valid_int_type, EnumDefArgs};
+use super::core::{
+    append_int_fns, check_derive_traits, parse_variants, valid_int_type, EnumDefArgs,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use std::collections::HashMap;
-use syn::token::Eq;
-use syn::{parse_macro_input, DeriveInput, Expr, Ident};
+use syn::{parse_macro_input, DeriveInput, Ident};
 
 #[doc = include_str!("../ATTR.md")]
-fn append_int_fns(
-    fns: &mut TokenStream2,
-    enum_name: &Ident,
-    variant_map: HashMap<Ident, Option<(Eq, Expr)>>,
-    int_type_str: &str,
-    int_type: &TokenStream2,
-) -> bool {
-    let mut from_int_tokens = TokenStream2::new();
-    let mut int_type_added = false;
-    for (variant_ident, variant_value) in variant_map {
-        match variant_value {
-            Some(v) => {
-                let v = v.1;
-                let variant_tokens = quote! {
-                    #v => Some(#enum_name::#variant_ident),
-                };
-                from_int_tokens.extend(variant_tokens);
-                int_type_added = true;
-            }
-            None => {}
-        };
-    }
-    if int_type_added {
-        let from_fn_name_str = format!("from_{}", int_type_str);
-        let from_fn_name = Ident::new(&from_fn_name_str, Span::call_site());
-
-        let as_fn_name_str = format!("as_{}", int_type_str);
-        let as_fn_name = Ident::new(&as_fn_name_str, Span::call_site());
-
-        let int_helpers = quote! {
-            #[inline]
-            pub const fn #from_fn_name(val: #int_type) -> Option<Self> {
-                match val {
-                    #from_int_tokens
-                    _ => None,
-                }
-            }
-
-            #[inline]
-            pub fn #as_fn_name(&self) -> #int_type {
-                self.clone() as #int_type
-            }
-        };
-
-        fns.extend(int_helpers);
-    }
-    int_type_added
-}
-
-pub fn enum_ext(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as EnumDefArgs);
     let input = parse_macro_input!(item as DeriveInput);
 
     let variants = match input.data {
         syn::Data::Enum(e) => e.variants,
-        _ => return TokenStream::from(quote! { compile_error!("enum_ext only works on enums"); }),
+        _ => {
+            return TokenStream::from(quote! { compile_error!("enum_extend only works on enums"); })
+        }
     };
 
     let mut int_type = quote! { usize };
@@ -113,20 +66,29 @@ pub fn enum_ext(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let mut enum_fns = quote! {
+        /// Returns an array of all variants in the enum
+        #[inline]
         pub const fn list() -> [#name; #variant_count] {
             [#variant_list]
         }
-
+        /// Returns the number of variants in the enum
+        #[inline]
         pub const fn count() -> usize {
             #variant_count
         }
-
+        /// Returns the ordinal of the variant
+        #[inline]
         pub const fn ordinal(&self) -> usize {
             match self {
                 #variant_ordinals
             }
         }
-
+        /// Returns true if the ordinal is valid for the enum
+        #[inline]
+        pub const fn valid_ordinal(&self,ordinal : usize) -> bool {
+            ordinal < #variant_count
+        }
+        /// Returns &Self from the ordinal.
         pub const fn ref_from_ordinal(ord: usize) -> Option<&'static Self> {
             const list : [#name; #variant_count] = #name::list();
             if ord >= #variant_count {
@@ -134,18 +96,20 @@ pub fn enum_ext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             Some(&list[ord])
         }
-
+        /// Returns an iterator over the variants in the enum
         pub fn iter() -> impl Iterator<Item = &'static #name> {
             const list : [#name; #variant_count] = #name::list();
             list.iter()
         }
-
+        /// Returns the variant name in spaced PascalCase
+        /// * For example, MyEnum::InQA. pascal_spaced() returns "In QA"
         pub const fn pascal_spaced(&self) -> &'static str {
             match self {
                 #to_pascal_split
             }
         }
-
+        /// Returns the variant from the spaced PascalCase name
+        /// * For example, MyEnum::from_pascal_spaced("In QA") returns Some(MyEnum::InQA)
         pub fn from_pascal_spaced(s: &str) -> Option<Self> {
             match s {
                 #from_pascal_split
@@ -177,6 +141,7 @@ pub fn enum_ext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     if derive_summary.has_clone || clone_added {
         enum_fns.extend(quote! {
+           /// Returns Self from the ordinal.
            pub const fn from_ordinal(ord: usize) -> Option<Self> {
                 match ord {
                     #variant_from_ordinals
@@ -203,6 +168,10 @@ pub fn enum_ext(attr: TokenStream, item: TokenStream) -> TokenStream {
         let from_fn_name = Ident::new(&from_fn_name_str, Span::call_site());
         let impl_from = quote! {
             impl From<#int_type> for #name {
+                /// Returns the enum variant from the integer value.
+                /// <br><br>
+                /// This will panic if the integer value is not a valid discriminant. Use the #from_fn_name or `try_from` functions
+                /// instead if you want to handle invalid values.
                 #[inline]
                 fn from(val: #int_type) -> Self {
                     Self::#from_fn_name(val).unwrap()

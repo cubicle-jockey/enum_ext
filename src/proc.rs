@@ -244,18 +244,26 @@ pub fn enum_ext(input: TokenStream) -> TokenStream {
 
     let mut enum_fns = quote! {
         /// Returns an array of all variants in the enum
+        #[inline]
         pub const fn list() -> [#name; #variant_count] {
             [#variant_list]
         }
         /// Returns the number of variants in the enum
+        #[inline]
         pub const fn count() -> usize {
             #variant_count
         }
         /// Returns the ordinal of the variant
+        #[inline]
         pub const fn ordinal(&self) -> usize {
             match self {
                 #variant_ordinals
             }
+        }
+        /// Returns true if the ordinal is valid for the enum
+        #[inline]
+        pub const fn valid_ordinal(&self,ordinal : usize) -> bool {
+            ordinal < #variant_count
         }
         /// Returns &Self from the ordinal.
         pub const fn ref_from_ordinal(ord: usize) -> Option<&'static Self> {

@@ -126,6 +126,7 @@ fn discriminant_2() {
     #[enum_extend(IntType = "u8")]
     #[derive(Debug, PartialEq)]
     pub enum Variant {
+        /// A
         A = 10,
         B = 20,
         C = 30,

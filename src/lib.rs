@@ -15,7 +15,7 @@ pub fn enum_extend(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    attr::enum_ext(attr, item)
+    attr::enum_extend(attr, item)
 }
 
 #[doc = include_str!("../README.md")]
