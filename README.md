@@ -50,7 +50,7 @@ use enum_ext::enum_extend;
 #[enum_extend]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Discr1 {
-    A = 10, // <- do not specify a discriminant type here. Usize will be used by default.
+    A = 10,
     B = 20,
     C = 30,
 }
@@ -59,7 +59,7 @@ pub enum Discr1 {
 #[enum_extend(IntType = "i32")]  // <- `IntType` is the discriminant type for conversion methods
 #[derive(Debug, Clone, PartialEq)]
 pub enum Discr2 {
-    A = 10,  // <- do not specify a discriminant type here. i32 will be used.
+    A = 10,
     B = 20,
     C = 30,
 }
@@ -75,7 +75,7 @@ enum_ext!(
     #[enum_def(IntType = "i32")]  // <- `IntType` is the discriminant type. 
     #[derive(Debug, Clone, PartialEq)]
     pub enum AdvancedEnum {
-        A = 10,  // <- do not specify a discriminant type here (10i32 etc)
+        A = 10,  
         B = 20,
         C = 30,
     }

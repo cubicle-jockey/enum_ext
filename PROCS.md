@@ -48,7 +48,7 @@ enum_ext!(
     #[enum_def(IntType = "i32")]  // <- `IntType` is the discriminant type. 
     #[derive(Debug, Clone, PartialEq)]
     pub enum AdvancedEnum {
-        A = 10,  // <- do not specify a discriminant type here (10i32 etc)
+        A = 10,  
         B = 20,
         C = 30,
     }
