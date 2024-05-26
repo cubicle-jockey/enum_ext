@@ -11,23 +11,28 @@ retrieving a list of variants, counting variants, and converting between discrim
 
 See the `enum_ext!` and `#[enum_extend]` macro examples below for more information.
 
-Both macros generate the same utility methods so you can choose the one that best fits your coding style.
+Both macros generate the same utility methods, so you can choose the one that best fits your coding style.
 
 ## Utility Functions
 
-- `list()`: Returns an array of all variants in the enum.
-- `count()`: Returns the count of variants in the enum.
-- `ordinal()`: Returns the ordinal of a variant.
-- `iter()`: Returns an iterator over the variants in the enum.
-- `from_<IntType>(val)` and `as_<IntType>(&self)`, if specified in the attributes.
-    - For example, `from_i32(10)`
-      and `as_i32()`
-      if `IntType = "i32"`, or `from_u32(10)` and `as_u32()` if `IntType = "u32"` etc.
-- `pascal_spaced(&self)`: Returns the variant name in spaced PascalCase. InQA becomes "In QA".
-- `from_pascal_spaced()`: Returns the variant from the spaced PascalCase name. "In QA" becomes InQA.
-- `from_ordinal()`: Returns the variant from the ordinal.
-- `ref_from_ordinal()`: Returns a reference to the variant from the ordinal.
-- more to come...
+- **`list()`**: Returns an array containing all variants of the enum.
+- **`count()`**: Returns the number of variants in the enum.
+- **`ordinal()`**: Returns the ordinal (index) of a variant.
+- **`from_ordinal(ordinal: usize)`**: Returns the variant corresponding to the given ordinal.
+- **`ref_from_ordinal(ordinal: usize)`**: Returns a reference to the variant corresponding to the given ordinal.
+- **`valid_ordinal(ordinal: usize)`**: Checks if the given ordinal is valid for the enum.
+- **`iter()`**: Returns an iterator over all the variants of the enum.
+- **`from_<IntType>(value: <IntType>)`** and **`as_<IntType>(&self)`**: Convert to and from the specified integer type,
+  if defined in the attributes.
+    - For example, `from_i32(10)` and `as_i32()` if `IntType = "i32"`, or `from_u32(10)`
+      and `as_u32()` if `IntType = "u32"`, etc.
+- **`pascal_spaced(&self)`**: Converts the variant name to spaced PascalCase. For instance, `InQA` becomes `"In QA"`.
+- **`from_pascal_spaced(name: &str)`**: Returns the variant corresponding to the spaced PascalCase name. For
+  example, `"In QA"` becomes `InQA`.
+- **`pretty_print()`**: Returns a formatted string displaying the enum and all its variants in a pretty-print format.
+- **More to come...**: Stay tuned for additional utility functions and features.
+
+### `See examples in the repository for more information.`
 
 ## Attributes
 
