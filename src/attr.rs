@@ -1,5 +1,6 @@
 use super::core::{
-    append_int_fns, check_derive_traits, parse_variants, valid_int_type, EnumDefArgs,
+    append_int_fns, check_derive_traits, make_pretty_print, parse_variants, valid_int_type,
+    EnumDefArgs,
 };
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -85,7 +86,7 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
         /// Returns true if the ordinal is valid for the enum
         #[inline]
-        pub const fn valid_ordinal(&self,ordinal : usize) -> bool {
+        pub const fn valid_ordinal(ordinal : usize) -> bool {
             ordinal < #variant_count
         }
         /// Returns &Self from the ordinal.
@@ -151,6 +152,13 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
         });
     }
 
+    let attrs2 = attrs.clone();
+    let needed_derives2 = needed_derives.clone();
+    let vis2 = vis.clone();
+    let name2 = name.clone();
+    let enum_body2 = enum_body.clone();
+    let pretty_print_body = make_pretty_print(attrs2, needed_derives2, vis2, name2, enum_body2);
+
     let expanded_enum = quote! {
         #(#attrs)*
         #needed_derives
@@ -160,6 +168,11 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl #name {
             #enum_fns
+
+            /// Returns a pretty printed string of the enum definition
+            pub const fn pretty_print() -> &'static str {
+                #pretty_print_body
+            }
         }
     };
 

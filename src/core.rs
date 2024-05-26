@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{Attribute, Expr, LitStr, Token, Variant};
+use syn::{Attribute, Expr, LitStr, Token, Variant, Visibility};
 
 /// Returns true if the given string represents a supported valid integer type ("i8" through "usize")
 pub(crate) fn valid_int_type(int_type: &str) -> bool {
@@ -390,8 +390,50 @@ pub(crate) fn append_int_fns(
     int_type_added
 }
 
+/// Constructs the pretty print string for the enum.
+pub(crate) fn make_pretty_print(
+    attrs: Vec<Attribute>,
+    needed_derives: TokenStream2,
+    vis: Visibility,
+    name: Ident,
+    enum_body: TokenStream2,
+) -> String {
+    let mut pretty_print_body = Vec::new();
+    let attrs = (quote! { #(#attrs)* }).to_string().trim().to_owned();
+    if !attrs.is_empty() {
+        pretty_print_body.push(attrs);
+        pretty_print_body.push("\n".to_owned());
+    }
+    let needed_derives = (quote! { #needed_derives }).to_string().trim().to_owned();
+    if !needed_derives.is_empty() {
+        pretty_print_body.push(needed_derives);
+        pretty_print_body.push("\n".to_owned());
+    }
+    let decla = (quote! { #vis enum #name }).to_string().trim().to_owned();
+    pretty_print_body.push(decla);
+    pretty_print_body.push(" {\n".to_owned());
+
+    let enum_body = (quote! { #enum_body })
+        .to_string()
+        .trim()
+        .split(",")
+        .map(|x| x.trim())
+        .collect::<Vec<&str>>()
+        .join(",\n    ")
+        .trim()
+        .to_owned();
+
+    pretty_print_body.push("    ".to_owned());
+    pretty_print_body.push(enum_body);
+
+    pretty_print_body.push("\n}".to_owned());
+
+    pretty_print_body.join("")
+}
+
 #[cfg(test)]
 mod test {
+
     #[test]
     fn pascal_case() {
         assert_eq!(super::split_pascal_case("MyEnum"), "My Enum");

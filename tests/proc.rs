@@ -1,4 +1,5 @@
-use enum_ext::enum_ext;
+#![allow(unused, dead_code)]
+use enum_ext::{enum_ext, enum_extend};
 #[test]
 fn simple_1() {
     enum_ext! {
@@ -333,4 +334,48 @@ fn pascal_spaced2() {
             }
         }
     }
+}
+
+#[test]
+fn pretty_print_1() {
+    enum_ext! {
+        #[derive(Debug, PartialEq)]
+        pub enum PrettyPrint {
+            A,
+            B,
+            C,
+        }
+    }
+    assert_eq!(
+        PrettyPrint::pretty_print(),
+        r##"#[derive(Debug, PartialEq)]
+pub enum PrettyPrint {
+    A,
+    B,
+    C,
+}"##
+    );
+}
+
+#[test]
+fn pretty_print_2() {
+    enum_ext! {
+        #[derive(Debug, PartialEq)]
+        pub enum PrettyPrint {
+            A = 10,
+            B = 20,
+            C = 30,
+        }
+    }
+
+    assert_eq!(
+        PrettyPrint::pretty_print(),
+        r##"#[derive(Debug, PartialEq)]
+#[derive(Clone)]
+pub enum PrettyPrint {
+    A = 10,
+    B = 20,
+    C = 30,
+}"##
+    );
 }
