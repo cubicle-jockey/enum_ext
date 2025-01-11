@@ -372,6 +372,32 @@ fn pretty_print_2() {
         PrettyPrint::pretty_print(),
         r##"#[derive(Debug, PartialEq)]
 #[derive(Clone)]
+#[repr(usize)]
+pub enum PrettyPrint {
+    A = 10,
+    B = 20,
+    C = 30,
+}"##
+    );
+}
+
+#[test]
+fn pretty_print_3() {
+    enum_ext! {
+        #[derive(Debug, PartialEq)]
+        #[enum_def(IntType = "u8")]
+        pub enum PrettyPrint {
+            A = 10,
+            B = 20,
+            C = 30,
+        }
+    }
+
+    assert_eq!(
+        PrettyPrint::pretty_print(),
+        r##"#[derive(Debug, PartialEq)]
+#[derive(Clone)]
+#[repr(u8)]
 pub enum PrettyPrint {
     A = 10,
     B = 20,

@@ -397,6 +397,7 @@ pub(crate) fn make_pretty_print(
     vis: Visibility,
     name: Ident,
     enum_body: TokenStream2,
+    repl_value: TokenStream2,
 ) -> String {
     let mut pretty_print_body = Vec::new();
     let attrs = (quote! { #(#attrs)* }).to_string().trim().to_owned();
@@ -407,6 +408,11 @@ pub(crate) fn make_pretty_print(
     let needed_derives = (quote! { #needed_derives }).to_string().trim().to_owned();
     if !needed_derives.is_empty() {
         pretty_print_body.push(needed_derives);
+        pretty_print_body.push("\n".to_owned());
+    }
+    let repl_value = (quote! { #repl_value }).to_string().trim().to_owned();
+    if !repl_value.is_empty() {
+        pretty_print_body.push(repl_value);
         pretty_print_body.push("\n".to_owned());
     }
     let decla = (quote! { #vis enum #name }).to_string().trim().to_owned();
