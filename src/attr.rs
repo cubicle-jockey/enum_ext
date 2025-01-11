@@ -140,6 +140,15 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    let mut repl_value = TokenStream2::new();
+    //dbg!(int_type_added);
+    if int_type_added {
+        repl_value.extend(quote! {
+            #[repr(#int_type)]
+        });
+        //dbg!(&repl_value);
+    }
+
     if derive_summary.has_clone || clone_added {
         enum_fns.extend(quote! {
            /// Returns Self from the ordinal.
@@ -154,14 +163,23 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let attrs2 = attrs.clone();
     let needed_derives2 = needed_derives.clone();
+    let repl_value2 = repl_value.clone();
     let vis2 = vis.clone();
     let name2 = name.clone();
     let enum_body2 = enum_body.clone();
-    let pretty_print_body = make_pretty_print(attrs2, needed_derives2, vis2, name2, enum_body2);
+    let pretty_print_body = make_pretty_print(
+        attrs2,
+        needed_derives2,
+        vis2,
+        name2,
+        enum_body2,
+        repl_value2,
+    );
 
     let expanded_enum = quote! {
         #(#attrs)*
         #needed_derives
+        #repl_value
         #vis enum #name {
             #enum_body
         }
