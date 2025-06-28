@@ -1,6 +1,6 @@
 [package]
 name = "enum_ext"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["cubicle-jockey <cubicle-jockey@users.noreply.github.com>"]
 keywords = ["enum", "macro", "discriminant", "procedural"]
 categories = ["rust-patterns", "development-tools"]
@@ -15,6 +15,11 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [dependencies]
-quote = "1.0.38"
-syn = { version = "2.0.96", features = ["full", "fold"] }
-proc-macro2 = "1.0.93"
+quote = "1.0.40"
+syn = { version = "2.0.104", features = ["full", "fold"] }
+proc-macro2 = "1.0.95"
+rand = { version = "0.9", optional = true }
+
+[features]
+default = []
+random = ["rand"]
