@@ -181,6 +181,19 @@ fn discriminant_2() {
 }
 
 #[test]
+fn discriminant_3() {
+    enum_ext! {
+        #[derive(Debug, PartialEq)]
+        #[enum_def(IntType = "i64")]
+        pub enum Variant {
+            A = 10,
+            B = 20,
+            C = 30,
+        }
+    }
+}
+
+#[test]
 fn discriminant_neg1() {
     enum_ext! {
         #[enum_def(IntType = "i32")]
