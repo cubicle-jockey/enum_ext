@@ -15,6 +15,8 @@ Both macros generate the same utility methods, so you can choose the one that be
 
 ## Utility Functions
 
+### Core Functions
+
 - **`list()`**: Returns an array containing all variants of the enum.
 - **`count()`**: Returns the number of variants in the enum.
 - **`ordinal()`**: Returns the ordinal (index) of a variant.
@@ -22,15 +24,63 @@ Both macros generate the same utility methods, so you can choose the one that be
 - **`ref_from_ordinal(ordinal: usize)`**: Returns a reference to the variant corresponding to the given ordinal.
 - **`valid_ordinal(ordinal: usize)`**: Checks if the given ordinal is valid for the enum.
 - **`iter()`**: Returns an iterator over all the variants of the enum.
+- **`pretty_print()`**: Returns a formatted string displaying the enum and all its variants in a pretty-print format.
+
+### String Conversion Functions
+
+- **`pascal_spaced(&self)`**: Converts the variant name to spaced PascalCase. For instance, `InQA` becomes `"In QA"`.
+- **`from_pascal_spaced(name: &str)`**: Returns the variant corresponding to the spaced PascalCase name. For example,
+  `"In QA"` becomes `InQA`.
+- **`snake_case(&self)`**: Converts the variant name to snake_case. For instance, `InQA` becomes `"in_qa"`.
+- **`from_snake_case(name: &str)`**: Returns the variant corresponding to the snake_case name. For example, `"in_qa"`
+  becomes `InQA`.
+- **`kebab_case(&self)`**: Converts the variant name to kebab-case. For instance, `InQA` becomes `"in-qa"`.
+- **`from_kebab_case(name: &str)`**: Returns the variant corresponding to the kebab-case name. For example, `"in-qa"`
+  becomes `InQA`.
+
+### Navigation Functions
+
+- **`next(&self)`**: Returns the next variant in ordinal order (wraps around to first when at last).
+- **`previous(&self)`**: Returns the previous variant in ordinal order (wraps around to last when at first).
+- **`next_linear(&self)`**: Returns the next variant without wrapping (returns `None` at end).
+- **`previous_linear(&self)`**: Returns the previous variant without wrapping (returns `None` at start).
+
+### Validation Functions
+
+- **`is_first(&self)`**: Returns `true` if this is the first variant (ordinal 0).
+- **`is_last(&self)`**: Returns `true` if this is the last variant.
+- **`comes_before(&self, other: &Self)`**: Returns `true` if this variant comes before the other in ordinal order.
+- **`comes_after(&self, other: &Self)`**: Returns `true` if this variant comes after the other in ordinal order.
+
+### Filtering Functions
+
+- **`variants_containing(substring: &str)`**: Returns variants whose names contain the substring.
+- **`variants_starting_with(prefix: &str)`**: Returns variants whose names start with the prefix.
+- **`variants_ending_with(suffix: &str)`**: Returns variants whose names end with the suffix.
+
+### Batch Operations
+
+- **`slice(start: usize, end: usize)`**: Returns a slice of variants from start to end ordinal.
+- **`range(range: std::ops::Range<usize>)`**: Returns variants in the specified ordinal range.
+- **`first_n(n: usize)`**: Returns the first N variants.
+- **`last_n(n: usize)`**: Returns the last N variants.
+
+### Metadata Functions
+
+- **`variant_name(&self)`**: Returns the variant name as a string.
+- **`variant_names()`**: Returns all variant names as a vector of strings.
+
+### Random Selection (Optional Feature)
+
+- **`random()`**: Returns a random variant (requires `"random"` feature).
+- **`random_with_rng<R: Rng>(rng: &mut R)`**: Returns a random variant using provided RNG (requires `"random"` feature).
+
+### Integer Conversion Functions (When IntType is specified)
+
 - **`from_<IntType>(value: <IntType>)`** and **`as_<IntType>(&self)`**: Convert to and from the specified integer type,
   if defined in the attributes.
-    - For example, `from_i32(10)` and `as_i32()` if `IntType = "i32"`, or `from_u32(10)`
-      and `as_u32()` if `IntType = "u32"`, etc.
-- **`pascal_spaced(&self)`**: Converts the variant name to spaced PascalCase. For instance, `InQA` becomes `"In QA"`.
-- **`from_pascal_spaced(name: &str)`**: Returns the variant corresponding to the spaced PascalCase name. For
-  example, `"In QA"` becomes `InQA`.
-- **`pretty_print()`**: Returns a formatted string displaying the enum and all its variants in a pretty-print format.
-- **More to come...**: Stay tuned for additional utility functions and features.
+    - For example, `from_i32(10)` and `as_i32()` if `IntType = "i32"`, or `from_u32(10)` and `as_u32()` if
+      `IntType = "u32"`, etc.
 
 ### `See examples in the repository for more information.`
 
@@ -43,6 +93,17 @@ Attributes are optional and used to customize the generated methods.
   conversion from this type to an enum variant and vice versa. Supported types include standard Rust
   integer types like `i32`, `u32`, `i64`, etc. If this attribute is not specified, `usize` is used as the default.
     * **Note**: If the enum has discriminant values, `#[derive(Clone)]` is added to the enum (if not already present).
+
+## Features
+
+This crate supports optional features that can be enabled in your `Cargo.toml`:
+
+* `random` - Enables random variant selection functionality (`random()` and `random_with_rng()` methods). Add this to
+  your `Cargo.toml`:
+  ```toml
+  [dependencies]
+  enum_ext = { version = "0.4.0", features = ["random"] }
+  ```
 
 When using `enum_ext!`, the attribute is applied in an `enum_def` parameter to the macro:
 
