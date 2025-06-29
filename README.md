@@ -102,7 +102,8 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   your `Cargo.toml`:
   ```toml
   [dependencies]
-  enum_ext = { version = "0.4.0", features = ["random"] }
+  rand = "0.9.1"
+  enum_ext = { version = "0.4.1", features = ["random"] }
   ```
 
 Assigning attributes vary slightly depending on the macro used.
@@ -313,5 +314,5 @@ Add the following to your Cargo.toml file:
 
 ```toml
 [dependencies]
-enum_ext = "0.4.0"
+enum_ext = "0.4.1"
 ```
