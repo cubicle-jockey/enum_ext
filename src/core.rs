@@ -802,19 +802,6 @@ pub(crate) fn generate_expanded_enum(
             let start = if n >= #variant_count { 0 } else { #variant_count - n };
             Self::slice(start, #variant_count)
         }
-        /// Returns a random variant (requires "random" feature)
-        #[cfg(feature = "random")]
-        pub fn random() -> &'static Self {
-            use rand::Rng;
-            let mut rng = rand::thread_rng();
-            Self::random_with_rng(&mut rng)
-        }
-        /// Returns a random variant using provided RNG (requires "random" feature)
-        #[cfg(feature = "random")]
-        pub fn random_with_rng<R: rand::Rng>(rng: &mut R) -> &'static Self {
-            let random_ordinal = rng.gen_range(0..#variant_count);
-            Self::ref_from_ordinal(random_ordinal).unwrap()
-        }
         /// Returns the variant name as a string (metadata extraction)
         pub const fn variant_name(&self) -> &'static str {
             match self {
@@ -826,6 +813,24 @@ pub(crate) fn generate_expanded_enum(
             Self::iter().map(|v| v.variant_name()).collect()
         }
     };
+
+    // Add random methods if "random" feature is enabled
+    #[cfg(feature = "random")]
+    {
+        enum_fns.extend(quote! {
+            /// Returns a random variant (requires "random" feature)
+            pub fn random() -> &'static Self {
+                use rand::Rng;
+                let mut rng = rand::rng();
+                Self::random_with_rng(&mut rng)
+            }
+            /// Returns a random variant using provided RNG (requires "random" feature)
+            pub fn random_with_rng<R: rand::Rng>(rng: &mut R) -> &'static Self {
+                let random_ordinal = rng.random_range(0..#variant_count);
+                Self::ref_from_ordinal(random_ordinal).unwrap()
+            }
+        });
+    }
 
     // Add integer conversion functions if needed
     let mut needed_derives = TokenStream2::new();
