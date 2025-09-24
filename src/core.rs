@@ -593,6 +593,7 @@ pub(crate) fn generate_expanded_enum(
     variants: &Punctuated<Variant, Comma>,
     int_type_str: &str,
     int_type: &TokenStream2,
+    int_type_specified: bool,
 ) -> Result<TokenStream2, EnumMacroError> {
     let derive_summary = check_derive_traits(attrs);
 
@@ -852,9 +853,9 @@ pub(crate) fn generate_expanded_enum(
         }
     }
 
-    // Add repr attribute if needed
+    // Add repr attribute if needed (emit if user specified IntType or if discriminants exist)
     let mut repl_value = TokenStream2::new();
-    if int_type_added {
+    if int_type_specified || int_type_added {
         repl_value.extend(quote! {
             #[repr(#int_type)]
         });

@@ -20,7 +20,10 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut int_type = quote! { usize };
     let mut int_type_str = "usize".to_string();
 
-    if let Some(lit_str) = args.int_type {
+    // Record whether the user specified IntType
+    let int_type_specified = args.int_type.is_some();
+
+    if let Some(lit_str) = &args.int_type {
         int_type_str = lit_str.value();
         if !valid_int_type(&int_type_str) {
             let error_message = format!("Invalid IntType: {}", int_type_str);
@@ -47,6 +50,7 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
         &variants,
         &int_type_str,
         &int_type,
+        int_type_specified,
     ) {
         Ok(expanded) => expanded.into(),
         Err(error) => {

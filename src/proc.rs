@@ -181,6 +181,9 @@ pub fn enum_ext(input: TokenStream) -> TokenStream {
         }
     };
 
+    // Remember whether IntType was specified by the user before moving it
+    let int_type_specified = my_args.int_type.is_some();
+
     // Set up integer type
     let mut int_type = quote! { usize };
     let mut int_type_str = "usize".to_string();
@@ -212,6 +215,7 @@ pub fn enum_ext(input: TokenStream) -> TokenStream {
         &variants,
         &int_type_str,
         &int_type,
+        int_type_specified,
     ) {
         Ok(expanded) => expanded.into(),
         Err(error) => {
