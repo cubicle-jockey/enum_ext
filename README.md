@@ -308,11 +308,15 @@ fn main() {
 }
 ```
 
-## Getting Started
+## Changes
 
-Add the following to your Cargo.toml file:
+### v0.4.2
 
-```toml
-[dependencies]
-enum_ext = "0.4.1"
-```
+- Parse the configured `IntType` into a real Rust type using `syn::parse_str::<syn::Type>` instead of string-based token
+  hacks; this makes `IntType` handling more robust and prevents malformed type tokens from being emitted.
+- Emit `#[repr(...)]` whenever the user explicitly specifies `IntType` (even if no discriminants are present), so the
+  enum layout matches the requested integer representation.
+- Reject multiple `#[enum_def(...)]` attributes on the derive macro; the macro now returns a clear compile error if more
+  than one `enum_def` attribute is present.
+- Use the local `EnumDefArgs::default()` directly and tidy up attribute parsing code paths for clarity.
+- Improve tests and validation across the macros; 
