@@ -1,6 +1,4 @@
-use super::core::{
-    generate_expanded_enum, valid_int_type, EnumDefArgs,
-};
+use super::core::{generate_expanded_enum, valid_int_type, EnumDefArgs};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
@@ -29,8 +27,11 @@ pub fn enum_extend(attr: TokenStream, item: TokenStream) -> TokenStream {
             return TokenStream::from(quote! { compile_error!(#error_message); });
         }
 
-        int_type = match lit_str.parse() {
-            Ok(result) => result,
+        // Use syn::parse_str to parse the type string into a syn::Type, then quote it
+        match syn::parse_str::<syn::Type>(&int_type_str) {
+            Ok(parsed_ty) => {
+                int_type = quote! { #parsed_ty };
+            }
             Err(error) => {
                 let error_message = format!("Invalid IntType: {}", error);
                 return TokenStream::from(quote! { compile_error!(#error_message); });

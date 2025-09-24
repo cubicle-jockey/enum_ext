@@ -1,6 +1,4 @@
-use super::core::{
-    generate_expanded_enum, valid_int_type, EnumDefArgs, EnumMacroError,
-};
+use super::core::{generate_expanded_enum, valid_int_type, EnumDefArgs, EnumMacroError};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::Parse;
@@ -40,24 +38,24 @@ use syn::{parse_macro_input, Attribute, DeriveInput};
 fn process_attributes(
     attrs: &[Attribute],
 ) -> Result<(EnumDefArgs, Vec<Attribute>), EnumMacroError> {
-    // Logic to process attributes
     let mut not_mine = Vec::<Attribute>::new();
-    let mut my_args = None;
+    let mut my_args: Option<EnumDefArgs> = None;
     for attr in attrs {
         if attr.path().is_ident("enum_def") {
+            if my_args.is_some() {
+                return Err(EnumMacroError::ParseError(
+                    "Multiple `enum_def` attributes found; only one is allowed".to_string(),
+                ));
+            }
             let args: EnumDefArgs = attr
                 .parse_args_with(EnumDefArgs::parse)
                 .map_err(|e| EnumMacroError::ParseError(e.to_string()))?;
-
             my_args = Some(args);
         } else {
             not_mine.push(attr.clone());
         }
     }
-    Ok((
-        my_args.unwrap_or_else(crate::proc::EnumDefArgs::default),
-        not_mine,
-    ))
+    Ok((my_args.unwrap_or_else(EnumDefArgs::default), not_mine))
 }
 /// A procedural macro to enhance enums in Rust with additional methods and conversions.
 ///
@@ -194,8 +192,11 @@ pub fn enum_ext(input: TokenStream) -> TokenStream {
             return TokenStream::from(quote! { compile_error!(#error_message); });
         }
 
-        int_type = match lit_str.parse() {
-            Ok(result) => result,
+        // Use syn::parse_str to parse the type string into a syn::Type, then quote it
+        match syn::parse_str::<syn::Type>(&int_type_str) {
+            Ok(parsed_ty) => {
+                int_type = quote! { #parsed_ty };
+            }
             Err(error) => {
                 let error_message = format!("Invalid IntType: {}", error);
                 return TokenStream::from(quote! { compile_error!(#error_message); });
