@@ -7,7 +7,7 @@ categories = ["rust-patterns", "development-tools"]
 repository = "https://github.com/cubicle-jockey/enum_ext"
 homepage = "https://github.com/cubicle-jockey/enum_ext"
 description = "procedural macro that enhances enums with additional methods and conversions"
-edition = "2021"
+edition = "2024"
 exclude = ["target", "Cargo.lock"]
 license = "MIT OR Apache-2.0"
 
