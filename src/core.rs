@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
@@ -63,7 +63,13 @@ impl Parse for EnumDefArgs {
                 let int_type_v: LitStr = input.parse()?;
 
                 if !valid_int_type(&int_type_v.value()) {
-                    return Err(syn::Error::new(int_type_v.span(), format!("Invalid IntType: {}. Supported types are i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize", int_type_v.value())));
+                    return Err(syn::Error::new(
+                        int_type_v.span(),
+                        format!(
+                            "Invalid IntType: {}. Supported types are i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize",
+                            int_type_v.value()
+                        ),
+                    ));
                 }
 
                 int_type = Some(int_type_v);
@@ -877,6 +883,8 @@ pub(crate) fn generate_expanded_enum(
     // Generate pretty_print body
     let pretty_print_body =
         make_pretty_print(attrs, &needed_derives, vis, name, &enum_body, &repl_value);
+
+    let pretty_print_body = LitStr::new(&pretty_print_body, Span::call_site());
 
     // Generate the expanded enum
     let mut expanded_enum = quote! {
