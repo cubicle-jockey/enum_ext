@@ -620,6 +620,9 @@ pub(crate) fn generate_expanded_enum(
     int_type: &TokenStream2,
     int_type_specified: bool,
 ) -> Result<TokenStream2, EnumMacroError> {
+    if variants.len() == 0 {
+        panic!("cannot generate methods for empty enums");
+    }
     let derive_summary = check_derive_traits(attrs);
 
     let parsed_vars = parse_variants(name, variants, int_type)?;
