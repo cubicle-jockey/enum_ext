@@ -310,6 +310,10 @@ fn main() {
 
 ## Changes
 
+### v0.4.3
+
+- as_<int_type> is now `const` fn if dev derives `Copy` on enum.
+
 ### v0.4.2
 
 - Parse the configured `IntType` into a real Rust type using `syn::parse_str::<syn::Type>` instead of string-based token
