@@ -1,7 +1,7 @@
-use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{ToTokens, quote};
 use std::collections::HashMap;
+use std::hash::{BuildHasher, Hasher};
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
@@ -263,7 +263,7 @@ pub struct ParsedVariants {
     pub enum_body: TokenStream2,
     pub variant_list: TokenStream2,
     pub variant_ordinals: TokenStream2,
-    pub variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>>,
+    pub variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicHasher>,
     pub to_pascal_split: TokenStream2,
     pub from_pascal_split: TokenStream2,
     pub to_snake_case: TokenStream2,
@@ -325,7 +325,7 @@ pub(crate) fn parse_variants(
     let mut variant_from_ordinals = TokenStream2::new();
     let mut variant_ordinal = 0usize;
     let mut variant_ordinal2 = 0usize;
-    let mut variant_map = HashMap::new();
+    let mut variant_map = HashMap::with_hasher(DeterministicHasher::new());
     let mut to_pascal_split = TokenStream2::new();
     let mut from_pascal_split = TokenStream2::new();
     let mut to_snake_case_tokens = TokenStream2::new();
@@ -471,7 +471,7 @@ pub(crate) fn parse_variants(
 pub(crate) fn append_int_fns(
     fns: &mut TokenStream2,
     enum_name: &Ident,
-    variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>>,
+    variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicHasher>,
     int_type_str: &str,
     int_type: &TokenStream2,
     has_copy: bool,
@@ -959,6 +959,39 @@ pub(crate) fn generate_expanded_enum(
     }
 
     Ok(expanded_enum)
+}
+
+/// ### Deterministic Hasher
+/// this is not a secure or collision-free hasher and should not be used outside of this crate.
+/// - purpose is to guarantee consistent hashes
+pub(crate) struct DeterministicHasher {
+    value: u64,
+}
+
+impl DeterministicHasher {
+    fn new() -> Self {
+        Self { value: 0 }
+    }
+}
+
+impl Hasher for DeterministicHasher {
+    fn finish(&self) -> u64 {
+        self.value
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.value = self.value.rotate_left(8) + *b as u64;
+        }
+    }
+}
+
+impl BuildHasher for DeterministicHasher {
+    type Hasher = Self;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        DeterministicHasher::new()
+    }
 }
 
 #[cfg(test)]
