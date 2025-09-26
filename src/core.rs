@@ -473,6 +473,7 @@ pub(crate) fn append_int_fns(
     variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>>,
     int_type_str: &str,
     int_type: &TokenStream2,
+    has_copy: bool,
 ) -> bool {
     // Filter the map first to avoid empty matches
     let variants_with_values: Vec<_> = variant_map
@@ -495,19 +496,37 @@ pub(crate) fn append_int_fns(
         let as_fn_name_str = format!("as_{}", int_type_str);
         let as_fn_name = Ident::new(&as_fn_name_str, Span::call_site());
 
-        let int_helpers = quote! {
-            /// Returns the enum variant from the integer value
-            #[inline]
-            pub const fn #from_fn_name(val: #int_type) -> Option<Self> {
-                match val {
-                    #(#from_int_tokens)*
-                    _ => None,
+        let int_helpers = if !has_copy {
+            quote! {
+                /// Returns the enum variant from the integer value
+                #[inline]
+                pub const fn #from_fn_name(val: #int_type) -> Option<Self> {
+                    match val {
+                        #(#from_int_tokens)*
+                        _ => None,
+                    }
+                }
+                /// Returns the integer value from the enum variant
+                #[inline]
+                pub fn #as_fn_name(&self) -> #int_type {
+                    self.clone() as #int_type
                 }
             }
-            /// Returns the integer value from the enum variant
-            #[inline]
-            pub fn #as_fn_name(&self) -> #int_type {
-                self.clone() as #int_type
+        } else {
+            quote! {
+                /// Returns the enum variant from the integer value
+                #[inline]
+                pub const fn #from_fn_name(val: #int_type) -> Option<Self> {
+                    match val {
+                        #(#from_int_tokens)*
+                        _ => None,
+                    }
+                }
+                /// Returns the integer value from the enum variant
+                #[inline]
+                pub const fn #as_fn_name(&self) -> #int_type {
+                    *self as #int_type
+                }
             }
         };
 
@@ -841,7 +860,14 @@ pub(crate) fn generate_expanded_enum(
 
     // Add integer conversion functions if needed
     let mut needed_derives = TokenStream2::new();
-    let int_type_added = append_int_fns(&mut enum_fns, name, variant_map, int_type_str, int_type);
+    let int_type_added = append_int_fns(
+        &mut enum_fns,
+        name,
+        variant_map,
+        int_type_str,
+        int_type,
+        derive_summary.has_copy,
+    );
 
     // Add Clone derive if needed
     let mut clone_added = false;

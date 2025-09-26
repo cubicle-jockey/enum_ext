@@ -1,4 +1,4 @@
-use enum_ext::enum_extend;
+use enum_ext::{enum_ext, enum_extend};
 
 #[test]
 fn test_snake_case_conversion() {
@@ -227,12 +227,44 @@ fn test_random_selection() {
     ));
 
     // Test with custom RNG
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
     let mut rng = StdRng::seed_from_u64(42);
     let random_with_rng = TestEnum::random_with_rng(&mut rng);
     assert!(matches!(
         random_with_rng,
         &TestEnum::First | &TestEnum::Second | &TestEnum::Third
     ));
+}
+
+#[test]
+fn test_const_as_int() {
+    #[enum_extend(IntType = "u32")]
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    enum TestEnum {
+        One = 1,
+        Two = 2,
+        Three = 3,
+    }
+
+    const X: u32 = TestEnum::Two.as_u32();
+
+    assert_eq!(X, 2);
+}
+
+#[test]
+fn test_const_as_int2() {
+    enum_ext!(
+        #[enum_def(IntType = "u32")]
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        pub enum AdvancedEnum {
+            A = 10,
+            B = 20,
+            C = 30,
+        }
+    );
+
+    const X: u32 = AdvancedEnum::B.as_u32();
+
+    assert_eq!(X, 20);
 }
