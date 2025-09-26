@@ -1,3 +1,4 @@
+use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{ToTokens, quote};
 use std::collections::HashMap;
@@ -621,7 +622,10 @@ pub(crate) fn generate_expanded_enum(
     int_type_specified: bool,
 ) -> Result<TokenStream2, EnumMacroError> {
     if variants.len() == 0 {
-        panic!("cannot generate methods for empty enums");
+        //panic!("cannot generate methods for empty enums");
+        return Err(EnumMacroError::VariantError(
+            "cannot generate methods for empty enums".to_owned(),
+        ));
     }
     let derive_summary = check_derive_traits(attrs);
 
