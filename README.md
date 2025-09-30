@@ -103,7 +103,7 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   ```toml
   [dependencies]
   rand = "0.9.2"
-  enum_ext = { version = "0.4.3", features = ["random"] }
+  enum_ext = { version = "0.4.4", features = ["random"] }
   ```
 
 Assigning attributes vary slightly depending on the macro used.
@@ -309,6 +309,10 @@ fn main() {
 ```
 
 ## Changes
+
+### v0.4.4
+
+- swapped `std::ops::Range` with `core::ops::Range` for compatibility with `no_std`
 
 ### v0.4.3
 
