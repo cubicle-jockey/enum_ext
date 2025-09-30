@@ -823,7 +823,7 @@ pub(crate) fn generate_expanded_enum(
             &LIST[start..end]
         }
         /// Returns variants in the specified ordinal range
-        pub fn range(range: std::ops::Range<usize>) -> &'static [Self] {
+        pub fn range(range: core::ops::Range<usize>) -> &'static [Self] {
             Self::slice(range.start, range.end)
         }
         /// Returns the first N variants

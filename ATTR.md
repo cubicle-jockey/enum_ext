@@ -61,7 +61,7 @@ Both macros generate the same utility methods, so you can choose the one that be
 ### Batch Operations
 
 - **`slice(start: usize, end: usize)`**: Returns a slice of variants from start to end ordinal.
-- **`range(range: std::ops::Range<usize>)`**: Returns variants in the specified ordinal range.
+- **`range(range: core::ops::Range<usize>)`**: Returns variants in the specified ordinal range.
 - **`first_n(n: usize)`**: Returns the first N variants.
 - **`last_n(n: usize)`**: Returns the last N variants.
 
