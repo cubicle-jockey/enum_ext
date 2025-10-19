@@ -3,7 +3,7 @@ use enum_ext::enum_extend;
 #[test]
 fn complex_enum_as_int_and_strings() {
     #[enum_extend(IntType = "u32")]
-    #[derive(Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq)]
     enum Complex {
         AlphaOne(u32) = 4,
         BetaTwo((u32, i16)) = 8,
@@ -14,10 +14,21 @@ fn complex_enum_as_int_and_strings() {
     let b = Complex::BetaTwo((1, -2));
     let c = Complex::CharlieThree { fred: 5, barny: -7 };
 
+    let d = Complex::AlphaOne(5 + 5);
+    let e = Complex::BetaTwo((5 * 5, -4));
+    let f = Complex::CharlieThree {
+        fred: 3 + 4,
+        barny: -7 + 3,
+    };
+
     // as_u32 via match arms (const fn)
     assert_eq!(a.as_u32(), 4);
     assert_eq!(b.as_u32(), 8);
     assert_eq!(c.as_u32(), 16);
+
+    assert_eq!(d, Complex::AlphaOne(10));
+    assert_eq!(e, Complex::BetaTwo((25, -4)));
+    assert_eq!(f, Complex::CharlieThree { fred: 7, barny: -4 });
 
     // ordinal and name conversions should still work with field-ignoring patterns
     assert_eq!(a.ordinal(), 0);
