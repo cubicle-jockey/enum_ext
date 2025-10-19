@@ -313,8 +313,17 @@ fn main() {
 ### v0.5.0
 
 - Added support for complex enums (variants with payloads)
-    - <b>note</b>: not all `<from>_xyz(..)` utility features are possible for complex enums and are
-      omitted from these types of enums only (non-complex enums still have them).
+    - <b>note</b>: not all utility features are possible for complex enums and are
+      omitted from these types of enums only (non-complex enums still have them). see the
+      [Complex enum support](#complex-enum-support) section for more details.
+  ```rust
+  use enum_ext::enum_extend;
+  
+  #[enum_extend(IntType = "i32")]
+  #[derive(Debug, Clone, PartialEq)]
+  pub enum DiscrExpression {
+      // singles
+      X10(u32) = 10,
     - <b>note</b>: all complex enums must declare an explicit discriminant expression (for example, A(u32)<u><b> =
       4</b></u>, B((u32, i16))<u><b> = 8</b></u>). The macro will emit a compile error if any payload-carrying variant
       is missing a discriminant.
