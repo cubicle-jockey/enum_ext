@@ -16,12 +16,13 @@ use syn::{parse_macro_input, Attribute, DeriveInput};
 ///
 /// # Returns
 ///
-/// A tuple where the first element is an instance of `EnumDefArgs` containing the parsed arguments of the `enum_def` attribute,
-/// and the second element is a vector of attributes that are not related to `enum_def`.
+/// `Ok((EnumDefArgs, Vec<Attribute>))` where the first element contains the parsed `enum_def` arguments
+/// and the second element contains all attributes not related to `enum_def`.
 ///
 /// # Errors
 ///
-/// This function returns an error if there is an error in parsing the attributes.
+/// Returns `Err(EnumMacroError::ParseError)` if parsing the `enum_def` attribute fails or if multiple
+/// `enum_def` attributes are present.
 ///
 /// # Examples
 ///
@@ -87,8 +88,11 @@ fn process_attributes(
 /// - **Note:** If the integer type is not specified in the `enum_def` attribute, usize is used as the default.
 /// - **Note:** If the enum has discriminant values, `#[derive(Clone)]` is added to the enum (if not already present).
 ///
-/// ## Usage
+/// ## Arguments
 /// - `input`: A `TokenStream` representing an enum definition.
+///
+/// ## Returns
+/// - `TokenStream`: The generated code for the expanded enum.
 ///
 /// ## Errors
 /// Returns a compilation error if the input is not a valid enum or if there are issues with parsing.

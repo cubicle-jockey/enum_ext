@@ -103,7 +103,7 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   ```toml
   [dependencies]
   rand = "0.9"
-  enum_ext = { version = "0.4.5", features = ["random"] }
+  enum_ext = { version = "0.5.0", features = ["random"] }
   ```
 
 Assigning attributes vary slightly depending on the macro used.
@@ -309,6 +309,26 @@ fn main() {
 ```
 
 ## Changes
+
+### v0.5.0
+
+- Added support for complex enums (variants with payloads)
+    - <b>note</b>: not all `<from>_xyz(..)` utility features are possible for complex enums and are
+      omitted from these types of enums only (non-complex enums still have them).
+  ```rust
+  use enum_ext::enum_extend;
+  
+  #[enum_extend(IntType = "i32")]
+  #[derive(Debug, Clone, PartialEq)]
+  pub enum DiscrExpression {
+      // singles
+      X10(u32) = 10,
+      // tuples
+      X25((i32,i16)) = 5 * 5,
+      // structs
+      Y26{foo: u32,bar: String} = 13 + 13,      
+  }
+  ```
 
 ### v0.4.5
 

@@ -7,7 +7,15 @@ use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use syn::{Attribute, Expr, LitStr, Token, Variant, Visibility};
 
-/// Returns true if the given string represents a supported valid integer type ("i8" through "usize")
+/// Returns true if the given string represents a supported valid integer type ("i8" through "usize").
+///
+/// # Arguments
+///
+/// * `int_type` - The name of the integer type to validate (e.g., "u32", "i64", "usize").
+///
+/// # Returns
+///
+/// `true` if the provided type name is one of the supported integer types; otherwise `false`.
 pub(crate) fn valid_int_type(int_type: &str) -> bool {
     matches!(
         int_type,
@@ -103,7 +111,16 @@ pub(crate) struct DeriveSummary {
     pub has_ord: bool,
 }
 
-/// Checks whether the enum has a derives attribute and if it derives anything we may care about.
+/// Checks whether the enum has a `#[derive(...)]` attribute and which traits are derived.
+///
+/// # Arguments
+///
+/// * `derive_attrs` - The full list of attributes attached to the enum item.
+///
+/// # Returns
+///
+/// A `DeriveSummary` indicating which common traits (Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)
+/// are present in the derive list.
 pub(crate) fn check_derive_traits(derive_attrs: &[Attribute]) -> DeriveSummary {
     let mut summary = DeriveSummary::default();
 
@@ -510,25 +527,37 @@ pub(crate) fn parse_variants(
 
 /// Appends integer conversion functions to the enum.
 ///
-/// This function takes mutable references to a token stream for the functions, the enum name, a hashmap mapping variant identifiers to their optional discriminant values, a string for the integer type, and a token stream for the integer type.
-/// It returns a boolean indicating whether the integer type was added to the enum.
+/// Depending on the enum shape and derives, this may generate `from_<IntType>` and/or `as_<IntType>`
+/// helpers. For complex (data-carrying) enums, only `as_<IntType>(&self)` is emitted.
 ///
 /// # Arguments
 ///
-/// * `fns` - A mutable reference to a token stream for the functions.
-/// * `enum_name` - The identifier of the enum.
-/// * `variant_map` - A hashmap mapping variant identifiers to their optional discriminant values.
-/// * `int_type_str` - A string for the integer type.
-/// * `int_type` - A token stream for the integer type.
+/// * `fns` - A mutable token stream to which the generated functions will be appended.
+/// * `enum_name` - The enum identifier being expanded.
+/// * `variant_map` - Map of variant idents to optional discriminant expressions (if present).
+/// * `int_type_str` - The chosen integer type as a string (e.g., "u32").
+/// * `int_type` - The chosen integer type as a token stream (used in generated code).
+/// * `has_copy` - Whether the enum derives `Copy` (affects constness and implementation details).
+/// * `has_payloads` - Whether any variant carries data (tuple or struct variants).
+/// * `self_to_int_match_arms` - Prebuilt match arms for mapping `self` to the discriminant value in complex enums.
 ///
 /// # Returns
 ///
-/// A boolean indicating whether the integer type was added to the enum.
+/// `true` if at least one integer-conversion helper was generated; otherwise `false`.
 ///
 /// # Examples
 ///
 /// ```text
-/// let int_type_added = append_int_fns(&mut enum_fns, &name, variant_map, &int_type_str, &int_type);
+/// let int_type_added = append_int_fns(
+///     &mut enum_fns,
+///     &name,
+///     variant_map,
+///     &int_type_str,
+///     &int_type,
+///     /* has_copy */ true,
+///     /* has_payloads */ false,
+///     &self_to_int_match_arms,
+/// );
 /// ```
 pub(crate) fn append_int_fns(
     fns: &mut TokenStream2,
@@ -629,6 +658,19 @@ pub(crate) fn append_int_fns(
 }
 
 /// Constructs the pretty print string for the enum.
+///
+/// # Arguments
+///
+/// * `attrs` - Attributes attached to the original enum item.
+/// * `needed_derives` - Any derives that the macro decided to add (e.g., `Clone`).
+/// * `vis` - The visibility of the enum (`pub`, `pub(crate)`, etc.).
+/// * `name` - The enum identifier.
+/// * `enum_body` - The token stream of the enum body (variants).
+/// * `repl_value` - Optional `#[repr(...)]` attribute to include in the pretty print.
+///
+/// # Returns
+///
+/// A `String` containing a nicely formatted enum declaration, including attributes and derives.
 pub(crate) fn make_pretty_print(
     attrs: &[Attribute],
     needed_derives: &TokenStream2,
@@ -693,16 +735,24 @@ pub(crate) fn make_pretty_print(
 ///
 /// # Arguments
 ///
-/// * `attrs` - The attributes of the enum
-/// * `vis` - The visibility of the enum
-/// * `name` - The name of the enum
-/// * `variants` - The variants of the enum
-/// * `int_type_str` - The integer type as a string
-/// * `int_type` - The integer type as a TokenStream
+/// * `attrs` - The attributes attached to the source enum.
+/// * `vis` - The visibility of the enum.
+/// * `name` - The enum identifier.
+/// * `variants` - The enum variants.
+/// * `int_type_str` - The integer type as a string (used for naming generated functions).
+/// * `int_type` - The integer type as a TokenStream (used in generated code).
+/// * `int_type_specified` - Whether the user explicitly provided an integer type via attributes.
 ///
 /// # Returns
 ///
-/// A TokenStream containing the expanded enum with all implementations
+/// `Ok(TokenStream2)` containing the expanded enum with all generated implementations, or
+/// `Err(EnumMacroError)` describing why expansion failed.
+///
+/// # Errors
+///
+/// Returns `Err(EnumMacroError::VariantError)` if the enum is empty or, for complex enums,
+/// if any variant lacks an explicit discriminant. May also return `Err(EnumMacroError::ParseError)`
+/// when attribute parsing fails upstream.
 pub(crate) fn generate_expanded_enum(
     attrs: &[Attribute],
     vis: &Visibility,
