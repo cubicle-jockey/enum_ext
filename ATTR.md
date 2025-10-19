@@ -102,8 +102,8 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   your `Cargo.toml`:
   ```toml
   [dependencies]
-  rand = "0.9.1"
-  enum_ext = { version = "0.4.1", features = ["random"] }
+  rand = "0.9"
+  enum_ext = { version = "0.4.5", features = ["random"] }
   ```
 
 When using `enum_extend`, the attribute is applied directly in the tag:

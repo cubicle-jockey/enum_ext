@@ -102,8 +102,8 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   your `Cargo.toml`:
   ```toml
   [dependencies]
-  rand = "0.9.2"
-  enum_ext = { version = "0.4.4", features = ["random"] }
+  rand = "0.9"
+  enum_ext = { version = "0.4.5", features = ["random"] }
   ```
 
 Assigning attributes vary slightly depending on the macro used.
@@ -309,6 +309,24 @@ fn main() {
 ```
 
 ## Changes
+
+### v0.4.5
+
+- Added support for discriminant expressions, instead of just literals.
+  ```rust
+  use enum_ext::enum_extend;
+  
+  #[enum_extend(IntType = "i32")]
+  #[derive(Debug, Clone, Copy, PartialEq)]
+  pub enum DiscrExpression {
+      // literals
+      X10 = 10,
+      // expressions
+      X25 = 5 * 5,
+      Y26 = 13 + 13,
+      Z100 = 10 * (5 + 5),
+  }
+  ```
 
 ### v0.4.4
 
