@@ -324,17 +324,6 @@ fn main() {
   pub enum DiscrExpression {
       // singles
       X10(u32) = 10,
-    - <b>note</b>: all complex enums must declare an explicit discriminant expression (for example, A(u32)<u><b> =
-      4</b></u>, B((u32, i16))<u><b> = 8</b></u>). The macro will emit a compile error if any payload-carrying variant
-      is missing a discriminant.
-  ```rust
-  use enum_ext::enum_extend;
-  
-  #[enum_extend(IntType = "i32")]
-  #[derive(Debug, Clone, PartialEq)]
-  pub enum DiscrExpression {
-      // singles
-      X10(u32) = 10,
       // tuples
       X25((i32,i16)) = 5 * 5,
       // structs
