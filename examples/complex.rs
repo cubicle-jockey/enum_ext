@@ -1,4 +1,6 @@
-#![allow(unused)]
+#![allow(unused, dead_code)]
+use enum_ext::{enum_ext, enum_extend};
+
 // Examples for working with complex enums (variants with payloads)
 //
 // Run with:
@@ -7,8 +9,6 @@
 // These examples demonstrate both attribute and function-like macros with complex enums,
 // showing the available APIs (ordinal and string naming helpers) and integer conversions
 // via const match-based `as_<IntType>(&self)` methods.
-
-use enum_ext::{enum_ext, enum_extend};
 
 fn attribute_macro_with_inttype() {
     // IntType is optional; when provided, the as_<IntType>() helper will use that type.
