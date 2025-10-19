@@ -1,3 +1,4 @@
+#![allow(unused)]
 // Examples for working with complex enums (variants with payloads)
 //
 // Run with:
