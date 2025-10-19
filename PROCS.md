@@ -248,7 +248,7 @@ fn main() {
 }
 ```
 
-## Complex enum support
+### Complex enum support
 
 As of v0.5.0, enums with payloads (tuple and struct variants) are supported by the macros.
 

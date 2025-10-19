@@ -370,7 +370,7 @@ fn main() {
 - Use the local `EnumDefArgs::default()` directly and tidy up attribute parsing code paths for clarity.
 - Improve tests and validation across the macros;
 
-## Complex enum support
+### Complex enum support
 
 Starting with v0.5.0, enums with payloads (tuple or struct variants) are supported. These are referred to as complex
 enums below.
