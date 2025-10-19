@@ -247,3 +247,48 @@ fn main() {
     assert_eq!(status2, DevelopmentStatus::InQA);
 }
 ```
+
+## Complex enum support
+
+As of v0.5.0, enums with payloads (tuple and struct variants) are supported by the macros.
+
+Requirements:
+
+- Every payload-carrying variant must have an explicit discriminant expression (e.g., A(u32)<u><b> = 4</b></u>). The
+  macro emits a compile_error! if any complex variant lacks a discriminant.
+- #[repr(..)] is emitted automatically when IntType is specified or when discriminants are present. If IntType is not
+  specified, the default conversion target is usize and as_usize() will be generated.
+
+Generated API for complex enums:
+
+- Available (const and using match on self):
+    - count(), ordinal(), valid_ordinal()
+    - pascal_spaced(), snake_case(), kebab_case()
+    - variant_name(), is_first(), is_last(), comes_before(), comes_after()
+    - `as_<IntType>(&self) -> <IntType>` (for example, `as_u32()`)
+- Omitted for complex enums:
+    - list(), iter(), slice(), range(), first_n(), last_n()
+    - from_ordinal(), ref_from_ordinal(), next(), previous(), next_linear(), previous_linear()
+    - `from_<IntType>(...)`, `impl From<<IntType>>`
+    - from_pascal_spaced(...), from_snake_case(...), from_kebab_case(...), variant_names()
+    - random() helpers (feature = "random")
+
+Example:
+
+```rust
+use enum_ext::enum_extend;
+
+#[enum_extend(IntType = "u32")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Complex {
+    AlphaOne(u32) = 4,
+    BetaTwo((u32, i16)) = 8,
+    CharlieThree { fred: u32, barny: i16 } = 16,
+}
+
+fn main() {
+    let a = Complex::AlphaOne(10);
+    assert_eq!(a.as_u32(), 4);
+    assert_eq!(a.pascal_spaced(), "Alpha One");
+}
+```
