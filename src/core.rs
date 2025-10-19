@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{ToTokens, quote};
+use quote::quote;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hasher};
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
@@ -7,7 +7,15 @@ use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use syn::{Attribute, Expr, LitStr, Token, Variant, Visibility};
 
-/// Returns true if the given string represents a supported valid integer type ("i8" through "usize")
+/// Returns true if the given string represents a supported valid integer type ("i8" through "usize").
+///
+/// # Arguments
+///
+/// * `int_type` - The name of the integer type to validate (e.g., "u32", "i64", "usize").
+///
+/// # Returns
+///
+/// `true` if the provided type name is one of the supported integer types; otherwise `false`.
 pub(crate) fn valid_int_type(int_type: &str) -> bool {
     matches!(
         int_type,
@@ -103,7 +111,16 @@ pub(crate) struct DeriveSummary {
     pub has_ord: bool,
 }
 
-/// Checks whether the enum has a derives attribute and if it derives anything we may care about.
+/// Checks whether the enum has a `#[derive(...)]` attribute and which traits are derived.
+///
+/// # Arguments
+///
+/// * `derive_attrs` - The full list of attributes attached to the enum item.
+///
+/// # Returns
+///
+/// A `DeriveSummary` indicating which common traits (Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)
+/// are present in the derive list.
 pub(crate) fn check_derive_traits(derive_attrs: &[Attribute]) -> DeriveSummary {
     let mut summary = DeriveSummary::default();
 
@@ -273,6 +290,9 @@ pub struct ParsedVariants {
     pub variant_name_tokens: TokenStream2,
     pub variant_count: usize,
     pub variant_from_ordinals: TokenStream2,
+    pub has_payloads: bool,
+    pub has_discriminants: bool,
+    pub self_to_int_match_arms: TokenStream2,
 }
 
 /// Enum to track character types for split_pascal_case
@@ -333,15 +353,17 @@ pub(crate) fn parse_variants(
     let mut to_kebab_case_tokens = TokenStream2::new();
     let mut from_kebab_case_tokens = TokenStream2::new();
     let mut variant_name_tokens = TokenStream2::new();
+    let mut has_payloads = false;
+    let mut has_discriminants = false;
+    let mut self_to_int_match_arms = TokenStream2::new();
 
     for variant in variants {
-        if !variant.fields.is_empty() {
-            // Variant has additional data (like `A(String)`)
-            return Err(EnumMacroError::VariantError(format!(
-                "Unsupported variant '{}': complex variants are not yet supported by enum_ext",
-                variant.to_token_stream()
-            )));
+        // Track if any variant has payloads (tuple or struct variants)
+        let is_unit = variant.fields.is_empty();
+        if !is_unit {
+            has_payloads = true;
         }
+
         let variant_ident = variant.ident.clone();
         let variant_ident2 = variant.ident.clone();
         let variant_ident3 = variant.ident.clone();
@@ -351,36 +373,57 @@ pub(crate) fn parse_variants(
 
         let variant_value = if let Some((eq, expr)) = &variant.discriminant {
             // Preserve the original discriminant expression as-is to support both literals and expressions
+            has_discriminants = true;
             Some((eq.clone(), (*expr).clone()))
         } else {
             None
         };
 
-        variant_map.insert(variant_ident, variant_value);
+        variant_map.insert(variant_ident.clone(), variant_value.clone());
 
         let variant_tokens = quote! {
             #variant,
         };
         enum_body.extend(variant_tokens);
 
+        // For unit-only functionality (like list), we still build the tokens,
+        // but they will only be used when appropriate.
         let variant_list_tokens = quote! {
             #name::#variant_ident2,
         };
         variant_list.extend(variant_list_tokens);
         variant_count += 1;
 
+        // Build the match pattern that ignores fields for complex variants
+        let pat = if is_unit {
+            quote! { #name::#variant_ident3 }
+        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            quote! { #name::#variant_ident3 (..) }
+        } else {
+            // Named fields
+            quote! { #name::#variant_ident3 { .. } }
+        };
+
         let variant_ordinals_tokens = quote! {
-            #name::#variant_ident3 => #variant_ordinal,
+            #pat => #variant_ordinal,
         };
         variant_ordinals.extend(variant_ordinals_tokens);
         variant_ordinal += 1;
 
         let pascal_split_str = split_pascal_case(&variant_ident4.to_string());
+        let pat4 = if is_unit {
+            quote! { #name::#variant_ident4 }
+        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            quote! { #name::#variant_ident4 (..) }
+        } else {
+            quote! { #name::#variant_ident4 { .. } }
+        };
         let variant_pascal_tokens = quote! {
-            #name::#variant_ident4 => #pascal_split_str,
+            #pat4 => #pascal_split_str,
         };
         to_pascal_split.extend(variant_pascal_tokens);
 
+        // The reverse mappings produce a value; they will only be emitted for unit enums.
         let variant_pascal_tokens = quote! {
             #pascal_split_str => Some(#name::#variant_ident5),
         };
@@ -388,8 +431,15 @@ pub(crate) fn parse_variants(
 
         // Generate snake_case conversions
         let snake_case_str = to_snake_case(&variant_ident4.to_string());
+        let pat_snake = if is_unit {
+            quote! { #name::#variant_ident4 }
+        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            quote! { #name::#variant_ident4 (..) }
+        } else {
+            quote! { #name::#variant_ident4 { .. } }
+        };
         let variant_snake_tokens = quote! {
-            #name::#variant_ident4 => #snake_case_str,
+            #pat_snake => #snake_case_str,
         };
         to_snake_case_tokens.extend(variant_snake_tokens);
 
@@ -400,8 +450,15 @@ pub(crate) fn parse_variants(
 
         // Generate kebab-case conversions
         let kebab_case_str = to_kebab_case(&variant_ident4.to_string());
+        let pat_kebab = if is_unit {
+            quote! { #name::#variant_ident4 }
+        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            quote! { #name::#variant_ident4 (..) }
+        } else {
+            quote! { #name::#variant_ident4 { .. } }
+        };
         let variant_kebab_tokens = quote! {
-            #name::#variant_ident4 => #kebab_case_str,
+            #pat_kebab => #kebab_case_str,
         };
         to_kebab_case_tokens.extend(variant_kebab_tokens);
 
@@ -412,16 +469,40 @@ pub(crate) fn parse_variants(
 
         // Generate variant name tokens for metadata extraction
         let variant_name_str = variant_ident4.to_string();
+        let pat_name = if is_unit {
+            quote! { #name::#variant_ident4 }
+        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            quote! { #name::#variant_ident4 (..) }
+        } else {
+            quote! { #name::#variant_ident4 { .. } }
+        };
         let variant_name_match_tokens = quote! {
-            #name::#variant_ident4 => #variant_name_str,
+            #pat_name => #variant_name_str,
         };
         variant_name_tokens.extend(variant_name_match_tokens);
 
+        // from ordinal constructs a value; only used for unit enums
         let variant_ordinals_tokens = quote! {
             #variant_ordinal2 => Some(#name::#variant_ident6),
         };
         variant_from_ordinals.extend(variant_ordinals_tokens);
         variant_ordinal2 += 1;
+
+        // If this variant has an explicit discriminant, prepare a self->int match arm using a const
+        if let Some((_eq, _expr)) = &variant.discriminant {
+            let const_name_str =
+                format!("__ENUM_EXT_{}_{}", enum_name, variant_ident).to_uppercase();
+            let const_ident = Ident::new(&const_name_str, Span::call_site());
+            let pat_self = if is_unit {
+                quote! { Self::#variant_ident }
+            } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
+                quote! { Self::#variant_ident (..) }
+            } else {
+                quote! { Self::#variant_ident { .. } }
+            };
+            let arm = quote! { #pat_self => Self::#const_ident, };
+            self_to_int_match_arms.extend(arm);
+        }
     }
 
     Ok(ParsedVariants {
@@ -438,30 +519,45 @@ pub(crate) fn parse_variants(
         variant_name_tokens,
         variant_count,
         variant_from_ordinals,
+        has_payloads,
+        has_discriminants,
+        self_to_int_match_arms,
     })
 }
 
 /// Appends integer conversion functions to the enum.
 ///
-/// This function takes mutable references to a token stream for the functions, the enum name, a hashmap mapping variant identifiers to their optional discriminant values, a string for the integer type, and a token stream for the integer type.
-/// It returns a boolean indicating whether the integer type was added to the enum.
+/// Depending on the enum shape and derives, this may generate `from_<IntType>` and/or `as_<IntType>`
+/// helpers. For complex (data-carrying) enums, only `as_<IntType>(&self)` is emitted.
 ///
 /// # Arguments
 ///
-/// * `fns` - A mutable reference to a token stream for the functions.
-/// * `enum_name` - The identifier of the enum.
-/// * `variant_map` - A hashmap mapping variant identifiers to their optional discriminant values.
-/// * `int_type_str` - A string for the integer type.
-/// * `int_type` - A token stream for the integer type.
+/// * `fns` - A mutable token stream to which the generated functions will be appended.
+/// * `enum_name` - The enum identifier being expanded.
+/// * `variant_map` - Map of variant idents to optional discriminant expressions (if present).
+/// * `int_type_str` - The chosen integer type as a string (e.g., "u32").
+/// * `int_type` - The chosen integer type as a token stream (used in generated code).
+/// * `has_copy` - Whether the enum derives `Copy` (affects constness and implementation details).
+/// * `has_payloads` - Whether any variant carries data (tuple or struct variants).
+/// * `self_to_int_match_arms` - Prebuilt match arms for mapping `self` to the discriminant value in complex enums.
 ///
 /// # Returns
 ///
-/// A boolean indicating whether the integer type was added to the enum.
+/// `true` if at least one integer-conversion helper was generated; otherwise `false`.
 ///
 /// # Examples
 ///
 /// ```text
-/// let int_type_added = append_int_fns(&mut enum_fns, &name, variant_map, &int_type_str, &int_type);
+/// let int_type_added = append_int_fns(
+///     &mut enum_fns,
+///     &name,
+///     variant_map,
+///     &int_type_str,
+///     &int_type,
+///     /* has_copy */ true,
+///     /* has_payloads */ false,
+///     &self_to_int_match_arms,
+/// );
 /// ```
 pub(crate) fn append_int_fns(
     fns: &mut TokenStream2,
@@ -470,6 +566,8 @@ pub(crate) fn append_int_fns(
     int_type_str: &str,
     int_type: &TokenStream2,
     has_copy: bool,
+    has_payloads: bool,
+    self_to_int_match_arms: &TokenStream2,
 ) -> bool {
     // Filter the map first to avoid empty matches
     let variants_with_values: Vec<_> = variant_map
@@ -505,7 +603,19 @@ pub(crate) fn append_int_fns(
         let as_fn_name_str = format!("as_{}", int_type_str);
         let as_fn_name = Ident::new(&as_fn_name_str, Span::call_site());
 
-        let int_helpers = if !has_copy {
+        let int_helpers = if has_payloads {
+            // Complex enums: cannot construct variants from integers, but we can map self -> int via match
+            quote! {
+                #(#const_defs)*
+                /// Returns the integer value from the enum variant
+                #[inline]
+                pub const fn #as_fn_name(&self) -> #int_type {
+                    match self {
+                        #self_to_int_match_arms
+                    }
+                }
+            }
+        } else if !has_copy {
             quote! {
                 #(#const_defs)*
                 /// Returns the enum variant from the integer value
@@ -548,6 +658,19 @@ pub(crate) fn append_int_fns(
 }
 
 /// Constructs the pretty print string for the enum.
+///
+/// # Arguments
+///
+/// * `attrs` - Attributes attached to the original enum item.
+/// * `needed_derives` - Any derives that the macro decided to add (e.g., `Clone`).
+/// * `vis` - The visibility of the enum (`pub`, `pub(crate)`, etc.).
+/// * `name` - The enum identifier.
+/// * `enum_body` - The token stream of the enum body (variants).
+/// * `repl_value` - Optional `#[repr(...)]` attribute to include in the pretty print.
+///
+/// # Returns
+///
+/// A `String` containing a nicely formatted enum declaration, including attributes and derives.
 pub(crate) fn make_pretty_print(
     attrs: &[Attribute],
     needed_derives: &TokenStream2,
@@ -612,16 +735,24 @@ pub(crate) fn make_pretty_print(
 ///
 /// # Arguments
 ///
-/// * `attrs` - The attributes of the enum
-/// * `vis` - The visibility of the enum
-/// * `name` - The name of the enum
-/// * `variants` - The variants of the enum
-/// * `int_type_str` - The integer type as a string
-/// * `int_type` - The integer type as a TokenStream
+/// * `attrs` - The attributes attached to the source enum.
+/// * `vis` - The visibility of the enum.
+/// * `name` - The enum identifier.
+/// * `variants` - The enum variants.
+/// * `int_type_str` - The integer type as a string (used for naming generated functions).
+/// * `int_type` - The integer type as a TokenStream (used in generated code).
+/// * `int_type_specified` - Whether the user explicitly provided an integer type via attributes.
 ///
 /// # Returns
 ///
-/// A TokenStream containing the expanded enum with all implementations
+/// `Ok(TokenStream2)` containing the expanded enum with all generated implementations, or
+/// `Err(EnumMacroError)` describing why expansion failed.
+///
+/// # Errors
+///
+/// Returns `Err(EnumMacroError::VariantError)` if the enum is empty or, for complex enums,
+/// if any variant lacks an explicit discriminant. May also return `Err(EnumMacroError::ParseError)`
+/// when attribute parsing fails upstream.
 pub(crate) fn generate_expanded_enum(
     attrs: &[Attribute],
     vis: &Visibility,
@@ -656,6 +787,9 @@ pub(crate) fn generate_expanded_enum(
         variant_name_tokens,
         variant_count,
         variant_from_ordinals,
+        has_payloads,
+        _has_discriminants,
+        self_to_int_match_arms,
     ) = (
         parsed_vars.enum_body,
         parsed_vars.variant_list,
@@ -670,213 +804,300 @@ pub(crate) fn generate_expanded_enum(
         parsed_vars.variant_name_tokens,
         parsed_vars.variant_count,
         parsed_vars.variant_from_ordinals,
+        parsed_vars.has_payloads,
+        parsed_vars.has_discriminants,
+        parsed_vars.self_to_int_match_arms,
     );
 
-    // Generate enum functions
-    let mut enum_fns = quote! {
-        /// Returns an array of all variants in the enum
-        #[inline]
-        pub const fn list() -> [#name; #variant_count] {
-            [#variant_list]
-        }
-        /// Returns the number of variants in the enum
-        #[inline]
-        pub const fn count() -> usize {
-            #variant_count
-        }
-        /// Returns the ordinal of the variant
-        #[inline]
-        pub const fn ordinal(&self) -> usize {
-            match self {
-                #variant_ordinals
-            }
-        }
-        /// Returns true if the ordinal is valid for the enum
-        #[inline]
-        pub const fn valid_ordinal(ordinal : usize) -> bool {
-            ordinal < #variant_count
-        }
-        /// Returns &Self from the ordinal.
-        pub const fn ref_from_ordinal(ord: usize) -> Option<&'static Self> {
-            const list : [#name; #variant_count] = #name::list();
-            if ord >= #variant_count {
-                return None;
-            }
-            Some(&list[ord])
-        }
-        /// Returns an iterator over the variants in the enum
-        pub fn iter() -> impl Iterator<Item = &'static #name> {
-            const list : [#name; #variant_count] = #name::list();
-            list.iter()
-        }
-        /// Returns the variant name in spaced PascalCase
-        /// * For example, MyEnum::InQA.pascal_spaced() returns "In QA"
-        pub const fn pascal_spaced(&self) -> &'static str {
-            match self {
-                #to_pascal_split
-            }
-        }
-        /// Returns the variant from the spaced PascalCase name
-        /// * For example, MyEnum::from_pascal_spaced("In QA") returns Some(MyEnum::InQA)
-        pub fn from_pascal_spaced(s: &str) -> Option<Self> {
-            match s {
-                #from_pascal_split
-                _ => None,
-            }
-        }
-        /// Returns the variant name in snake_case
-        /// * For example, MyEnum::InQA.snake_case() returns "in_qa"
-        pub const fn snake_case(&self) -> &'static str {
-            match self {
-                #to_snake_case
-            }
-        }
-        /// Returns the variant from the snake_case name
-        /// * For example, MyEnum::from_snake_case("in_qa") returns Some(MyEnum::InQA)
-        pub fn from_snake_case(s: &str) -> Option<Self> {
-            match s {
-                #from_snake_case
-                _ => None,
-            }
-        }
-        /// Returns the variant name in kebab-case
-        /// * For example, MyEnum::InQA.kebab_case() returns "in-qa"
-        pub const fn kebab_case(&self) -> &'static str {
-            match self {
-                #to_kebab_case
-            }
-        }
-        /// Returns the variant from the kebab-case name
-        /// * For example, MyEnum::from_kebab_case("in-qa") returns Some(MyEnum::InQA)
-        pub fn from_kebab_case(s: &str) -> Option<Self> {
-            match s {
-                #from_kebab_case
-                _ => None,
-            }
-        }
-        /// Returns the next variant in ordinal order (wraps around)
-        pub const fn next(&self) -> &'static Self {
-            let current_ordinal = self.ordinal();
-            let next_ordinal = (current_ordinal + 1) % #variant_count;
-            Self::ref_from_ordinal(next_ordinal).unwrap()
-        }
-        /// Returns the previous variant in ordinal order (wraps around)
-        pub const fn previous(&self) -> &'static Self {
-            let current_ordinal = self.ordinal();
-            let prev_ordinal = if current_ordinal == 0 {
-                #variant_count - 1
-            } else {
-                current_ordinal - 1
-            };
-            Self::ref_from_ordinal(prev_ordinal).unwrap()
-        }
-        /// Returns the next variant without wrapping (returns None at end)
-        pub const fn next_linear(&self) -> Option<&'static Self> {
-            let current_ordinal = self.ordinal();
-            if current_ordinal + 1 >= #variant_count {
-                None
-            } else {
-                Self::ref_from_ordinal(current_ordinal + 1)
-            }
-        }
-        /// Returns the previous variant without wrapping (returns None at start)
-        pub const fn previous_linear(&self) -> Option<&'static Self> {
-            let current_ordinal = self.ordinal();
-            if current_ordinal == 0 {
-                None
-            } else {
-                Self::ref_from_ordinal(current_ordinal - 1)
-            }
-        }
-        /// Check if this is the first variant (ordinal 0)
-        pub const fn is_first(&self) -> bool {
-            self.ordinal() == 0
-        }
-        /// Check if this is the last variant
-        pub const fn is_last(&self) -> bool {
-            self.ordinal() == #variant_count - 1
-        }
-        /// Compare ordinal positions - returns true if self comes before other
-        pub const fn comes_before(&self, other: &Self) -> bool {
-            self.ordinal() < other.ordinal()
-        }
-        /// Compare ordinal positions - returns true if self comes after other
-        pub const fn comes_after(&self, other: &Self) -> bool {
-            self.ordinal() > other.ordinal()
-        }
-        /// Returns variants whose names contain the substring
-        pub fn variants_containing(substring: &str) -> Vec<&'static Self> {
-            Self::iter()
-                .filter(|variant| variant.pascal_spaced().contains(substring))
-                .collect()
-        }
-        /// Returns variants whose names start with the prefix
-        pub fn variants_starting_with(prefix: &str) -> Vec<&'static Self> {
-            Self::iter()
-                .filter(|variant| variant.pascal_spaced().starts_with(prefix))
-                .collect()
-        }
-        /// Returns variants whose names end with the suffix
-        pub fn variants_ending_with(suffix: &str) -> Vec<&'static Self> {
-            Self::iter()
-                .filter(|variant| variant.pascal_spaced().ends_with(suffix))
-                .collect()
-        }
-        /// Returns a slice of variants from start to end ordinal
-        pub fn slice(start: usize, end: usize) -> &'static [Self] {
-            const LIST : [#name; #variant_count] = #name::list();
-            const EMPTY : [#name; 0] = [];
-            if start >= #variant_count || end > #variant_count || start >= end {
-                return &EMPTY;
-            }
+    // For complex enums (with payloads), certain APIs that require constructing variants
+    // cannot be generated. We'll emit a common subset and add unit-only APIs conditionally.
+    let mut enum_fns = TokenStream2::new();
 
-            &LIST[start..end]
-        }
-        /// Returns variants in the specified ordinal range
-        pub fn range(range: core::ops::Range<usize>) -> &'static [Self] {
-            Self::slice(range.start, range.end)
-        }
-        /// Returns the first N variants
-        pub fn first_n(n: usize) -> &'static [Self] {
-            Self::slice(0, n.min(#variant_count))
-        }
-        /// Returns the last N variants
-        pub fn last_n(n: usize) -> &'static [Self]  {
-            let start = if n >= #variant_count { 0 } else { #variant_count - n };
-            Self::slice(start, #variant_count)
-        }
-        /// Returns the variant name as a string (metadata extraction)
-        pub const fn variant_name(&self) -> &'static str {
-            match self {
-                #variant_name_tokens
-            }
-        }
-        /// Returns all variant names as a vector of strings
-        pub fn variant_names() -> Vec<&'static str> {
-            Self::iter().map(|v| v.variant_name()).collect()
-        }
-    };
-
-    // Add random methods if "random" feature is enabled
-    #[cfg(feature = "random")]
-    {
+    if !has_payloads {
         enum_fns.extend(quote! {
-            /// Returns a random variant (requires "random" feature)
-            pub fn random() -> &'static Self {
-                use rand::Rng;
-                let mut rng = rand::rng();
-                Self::random_with_rng(&mut rng)
+            /// Returns an array of all variants in the enum
+            #[inline]
+            pub const fn list() -> [#name; #variant_count] {
+                [#variant_list]
             }
-            /// Returns a random variant using provided RNG (requires "random" feature)
-            pub fn random_with_rng<R: rand::Rng>(rng: &mut R) -> &'static Self {
-                let random_ordinal = rng.random_range(0..#variant_count);
-                Self::ref_from_ordinal(random_ordinal).unwrap()
+            /// Returns the number of variants in the enum
+            #[inline]
+            pub const fn count() -> usize {
+                #variant_count
+            }
+            /// Returns the ordinal of the variant
+            #[inline]
+            pub const fn ordinal(&self) -> usize {
+                match self {
+                    #variant_ordinals
+                }
+            }
+            /// Returns true if the ordinal is valid for the enum
+            #[inline]
+            pub const fn valid_ordinal(ordinal : usize) -> bool {
+                ordinal < #variant_count
+            }
+            /// Returns &Self from the ordinal.
+            pub const fn ref_from_ordinal(ord: usize) -> Option<&'static Self> {
+                const list : [#name; #variant_count] = #name::list();
+                if ord >= #variant_count {
+                    return None;
+                }
+                Some(&list[ord])
+            }
+            /// Returns an iterator over the variants in the enum
+            pub fn iter() -> impl Iterator<Item = &'static #name> {
+                const list : [#name; #variant_count] = #name::list();
+                list.iter()
+            }
+            /// Returns the variant name in spaced PascalCase
+            /// * For example, MyEnum::InQA.pascal_spaced() returns "In QA"
+            pub const fn pascal_spaced(&self) -> &'static str {
+                match self {
+                    #to_pascal_split
+                }
+            }
+            /// Returns the variant from the spaced PascalCase name
+            /// * For example, MyEnum::from_pascal_spaced("In QA") returns Some(MyEnum::InQA)
+            pub fn from_pascal_spaced(s: &str) -> Option<Self> {
+                match s {
+                    #from_pascal_split
+                    _ => None,
+                }
+            }
+            /// Returns the variant name in snake_case
+            /// * For example, MyEnum::InQA.snake_case() returns "in_qa"
+            pub const fn snake_case(&self) -> &'static str {
+                match self {
+                    #to_snake_case
+                }
+            }
+            /// Returns the variant from the snake_case name
+            /// * For example, MyEnum::from_snake_case("in_qa") returns Some(MyEnum::InQA)
+            pub fn from_snake_case(s: &str) -> Option<Self> {
+                match s {
+                    #from_snake_case
+                    _ => None,
+                }
+            }
+            /// Returns the variant name in kebab-case
+            /// * For example, MyEnum::InQA.kebab_case() returns "in-qa"
+            pub const fn kebab_case(&self) -> &'static str {
+                match self {
+                    #to_kebab_case
+                }
+            }
+            /// Returns the variant from the kebab-case name
+            /// * For example, MyEnum::from_kebab_case("in-qa") returns Some(MyEnum::InQA)
+            pub fn from_kebab_case(s: &str) -> Option<Self> {
+                match s {
+                    #from_kebab_case
+                    _ => None,
+                }
+            }
+            /// Returns the next variant in ordinal order (wraps around)
+            pub const fn next(&self) -> &'static Self {
+                let current_ordinal = self.ordinal();
+                let next_ordinal = (current_ordinal + 1) % #variant_count;
+                Self::ref_from_ordinal(next_ordinal).unwrap()
+            }
+            /// Returns the previous variant in ordinal order (wraps around)
+            pub const fn previous(&self) -> &'static Self {
+                let current_ordinal = self.ordinal();
+                let prev_ordinal = if current_ordinal == 0 {
+                    #variant_count - 1
+                } else {
+                    current_ordinal - 1
+                };
+                Self::ref_from_ordinal(prev_ordinal).unwrap()
+            }
+            /// Returns the next variant without wrapping (returns None at end)
+            pub const fn next_linear(&self) -> Option<&'static Self> {
+                let current_ordinal = self.ordinal();
+                if current_ordinal + 1 >= #variant_count {
+                    None
+                } else {
+                    Self::ref_from_ordinal(current_ordinal + 1)
+                }
+            }
+            /// Returns the previous variant without wrapping (returns None at start)
+            pub const fn previous_linear(&self) -> Option<&'static Self> {
+                let current_ordinal = self.ordinal();
+                if current_ordinal == 0 {
+                    None
+                } else {
+                    Self::ref_from_ordinal(current_ordinal - 1)
+                }
+            }
+            /// Check if this is the first variant (ordinal 0)
+            pub const fn is_first(&self) -> bool {
+                self.ordinal() == 0
+            }
+            /// Check if this is the last variant
+            pub const fn is_last(&self) -> bool {
+                self.ordinal() == #variant_count - 1
+            }
+            /// Compare ordinal positions - returns true if self comes before other
+            pub const fn comes_before(&self, other: &Self) -> bool {
+                self.ordinal() < other.ordinal()
+            }
+            /// Compare ordinal positions - returns true if self comes after other
+            pub const fn comes_after(&self, other: &Self) -> bool {
+                self.ordinal() > other.ordinal()
+            }
+            /// Returns variants whose names contain the substring
+            pub fn variants_containing(substring: &str) -> Vec<&'static Self> {
+                Self::iter()
+                    .filter(|variant| variant.pascal_spaced().contains(substring))
+                    .collect()
+            }
+            /// Returns variants whose names start with the prefix
+            pub fn variants_starting_with(prefix: &str) -> Vec<&'static Self> {
+                Self::iter()
+                    .filter(|variant| variant.pascal_spaced().starts_with(prefix))
+                    .collect()
+            }
+            /// Returns variants whose names end with the suffix
+            pub fn variants_ending_with(suffix: &str) -> Vec<&'static Self> {
+                Self::iter()
+                    .filter(|variant| variant.pascal_spaced().ends_with(suffix))
+                    .collect()
+            }
+            /// Returns a slice of variants from start to end ordinal
+            pub fn slice(start: usize, end: usize) -> &'static [Self] {
+                const LIST : [#name; #variant_count] = #name::list();
+                const EMPTY : [#name; 0] = [];
+                if start >= #variant_count || end > #variant_count || start >= end {
+                    return &EMPTY;
+                }
+
+                &LIST[start..end]
+            }
+            /// Returns variants in the specified ordinal range
+            pub fn range(range: core::ops::Range<usize>) -> &'static [Self] {
+                Self::slice(range.start, range.end)
+            }
+            /// Returns the first N variants
+            pub fn first_n(n: usize) -> &'static [Self] {
+                Self::slice(0, n.min(#variant_count))
+            }
+            /// Returns the last N variants
+            pub fn last_n(n: usize) -> &'static [Self]  {
+                let start = if n >= #variant_count { 0 } else { #variant_count - n };
+                Self::slice(start, #variant_count)
+            }
+            /// Returns the variant name as a string (metadata extraction)
+            pub const fn variant_name(&self) -> &'static str {
+                match self {
+                    #variant_name_tokens
+                }
+            }
+            /// Returns all variant names as a vector of strings
+            pub fn variant_names() -> Vec<&'static str> {
+                Self::iter().map(|v| v.variant_name()).collect()
+            }
+        });
+    } else {
+        enum_fns.extend(quote! {
+            /// Returns the number of variants in the enum
+            #[inline]
+            pub const fn count() -> usize {
+                #variant_count
+            }
+            /// Returns the ordinal of the variant
+            #[inline]
+            pub const fn ordinal(&self) -> usize {
+                match self {
+                    #variant_ordinals
+                }
+            }
+            /// Returns true if the ordinal is valid for the enum
+            #[inline]
+            pub const fn valid_ordinal(ordinal : usize) -> bool {
+                ordinal < #variant_count
+            }
+            /// Returns the variant name in spaced PascalCase
+            pub const fn pascal_spaced(&self) -> &'static str {
+                match self {
+                    #to_pascal_split
+                }
+            }
+            /// Returns the variant name in snake_case
+            pub const fn snake_case(&self) -> &'static str {
+                match self {
+                    #to_snake_case
+                }
+            }
+            /// Returns the variant name in kebab-case
+            pub const fn kebab_case(&self) -> &'static str {
+                match self {
+                    #to_kebab_case
+                }
+            }
+            /// Returns the variant name as a string (metadata extraction)
+            pub const fn variant_name(&self) -> &'static str {
+                match self {
+                    #variant_name_tokens
+                }
+            }
+            /// Check if this is the first variant (ordinal 0)
+            pub const fn is_first(&self) -> bool {
+                self.ordinal() == 0
+            }
+            /// Check if this is the last variant
+            pub const fn is_last(&self) -> bool {
+                self.ordinal() == #variant_count - 1
+            }
+            /// Compare ordinal positions - returns true if self comes before other
+            pub const fn comes_before(&self, other: &Self) -> bool {
+                self.ordinal() < other.ordinal()
+            }
+            /// Compare ordinal positions - returns true if self comes after other
+            pub const fn comes_after(&self, other: &Self) -> bool {
+                self.ordinal() > other.ordinal()
             }
         });
     }
 
+    // Add random methods if "random" feature is enabled
+    if !has_payloads {
+        #[cfg(feature = "random")]
+        {
+            enum_fns.extend(quote! {
+                /// Returns a random variant (requires "random" feature)
+                pub fn random() -> &'static Self {
+                    use rand::Rng;
+                    let mut rng = rand::rng();
+                    Self::random_with_rng(&mut rng)
+                }
+                /// Returns a random variant using provided RNG (requires "random" feature)
+                pub fn random_with_rng<R: rand::Rng>(rng: &mut R) -> &'static Self {
+                    let random_ordinal = rng.random_range(0..#variant_count);
+                    Self::ref_from_ordinal(random_ordinal).unwrap()
+                }
+            });
+        }
+    }
+
     // Add integer conversion functions if needed
     let mut needed_derives = TokenStream2::new();
+    // Validate complex enum discriminants: all must be specified to support integer conversions
+    if has_payloads {
+        let mut missing = false;
+        for v in variant_map.values() {
+            if v.is_none() {
+                missing = true;
+                break;
+            }
+        }
+        if missing {
+            return Err(EnumMacroError::VariantError(
+                "All complex enum variants must have explicit discriminants (e.g., = <int>)"
+                    .to_owned(),
+            ));
+        }
+    }
+
     let int_type_added = append_int_fns(
         &mut enum_fns,
         name,
@@ -884,6 +1105,8 @@ pub(crate) fn generate_expanded_enum(
         int_type_str,
         int_type,
         derive_summary.has_copy,
+        has_payloads,
+        &self_to_int_match_arms,
     );
 
     // Add Clone derive if needed
@@ -902,16 +1125,18 @@ pub(crate) fn generate_expanded_enum(
         }
     }
 
-    // Add repr attribute if needed (emit if user specified IntType or if discriminants exist)
+    // Add repr attribute if needed (emit if user specified IntType or if discriminants exist),
+    // but do not duplicate if the user already provided a repr attribute.
     let mut repl_value = TokenStream2::new();
-    if int_type_specified || int_type_added {
+    let has_repr_attr = attrs.iter().any(|a| a.path().is_ident("repr"));
+    if !has_repr_attr && (int_type_specified || int_type_added) {
         repl_value.extend(quote! {
             #[repr(#int_type)]
         });
     }
 
-    // Add from_ordinal if Clone is available
-    if derive_summary.has_clone || clone_added {
+    // Add from_ordinal if Clone is available (only for unit enums)
+    if !has_payloads && (derive_summary.has_clone || clone_added) {
         enum_fns.extend(quote! {
            /// Returns Self from the ordinal.
            pub const fn from_ordinal(ord: usize) -> Option<Self> {
@@ -948,8 +1173,8 @@ pub(crate) fn generate_expanded_enum(
         }
     };
 
-    // Add From implementation if int_type is specified
-    if int_type_added {
+    // Add From implementation if int_type is specified (only for unit enums where construction is possible)
+    if int_type_added && !has_payloads {
         let from_fn_name_str = format!("from_{}", int_type_str);
         let from_fn_name = Ident::new(&from_fn_name_str, Span::call_site());
         let impl_from = quote! {

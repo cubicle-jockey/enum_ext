@@ -103,7 +103,7 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   ```toml
   [dependencies]
   rand = "0.9"
-  enum_ext = { version = "0.4.5", features = ["random"] }
+  enum_ext = { version = "0.5.0", features = ["random"] }
   ```
 
 Assigning attributes vary slightly depending on the macro used.
@@ -308,7 +308,85 @@ fn main() {
 }
 ```
 
+### Complex enum support
+
+Starting with v0.5.0, enums with payloads (tuple or struct variants) are supported. These are referred to as complex
+enums below.
+
+Requirements and recommendations:
+
+- Every complex enum variant must declare an explicit discriminant expression (for example, A(u32) = 4, B((u32, i16)) =
+  8). The macro will emit a compile error if any payload-carrying variant is missing a discriminant.
+- The integer representation (#[repr(..)]) is added automatically when you specify IntType, or when discriminants are
+  present. If you do not specify IntType, the default conversion target is usize and as_usize will be generated.
+
+What is generated for complex enums:
+
+- Provided methods (all const and using match on self):
+    - count(), ordinal(), valid_ordinal()
+    - pascal_spaced(), snake_case(), kebab_case()
+    - variant_name(), is_first(), is_last(), comes_before(), comes_after()
+    - `as_<IntType>(&self) -> <IntType>` (for example, `as_u32()`), which returns the discriminant value
+- Omitted methods (not generated for complex enums because they require constructing values without payloads):
+    - list(), iter(), slice(), range(), first_n(), last_n()
+    - from_ordinal(), ref_from_ordinal(), next(), previous(), next_linear(), previous_linear()
+    - `from_<IntType>(...)`, `impl From<<IntType>> for YourEnum`
+    - from_pascal_spaced(...), from_snake_case(...), from_kebab_case(...), variant_names()
+    - random() helpers (feature = "random")
+
+Example:
+
+```rust
+use enum_ext::enum_extend;
+
+#[enum_extend(IntType = "u32")] // IntType is optional; defaults to usize when omitted
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Complex {
+    AlphaOne(u32) = 4,
+    BetaTwo((u32, i16)) = 8,
+    CharlieThree { fred: u32, barny: i16 } = 16,
+}
+
+fn main() {
+    let a = Complex::AlphaOne(10);
+    let b = Complex::BetaTwo((1, -2));
+    let c = Complex::CharlieThree { fred: 5, barny: -7 };
+
+    // integer conversion retains match-based logic and remains const
+    assert_eq!(a.as_u32(), 4);
+    assert_eq!(b.as_u32(), 8);
+    assert_eq!(c.as_u32(), 16);
+
+    // ordinal and name helpers still work
+    assert_eq!(a.ordinal(), 0);
+    assert_eq!(a.pascal_spaced(), "Alpha One");
+    assert_eq!(a.snake_case(), "alpha_one");
+    assert_eq!(a.kebab_case(), "alpha-one");
+}
+```
+
 ## Changes
+
+### v0.5.0
+
+- Added support for complex enums (variants with payloads)
+    - <b>note</b>: not all utility features are possible for complex enums and are
+      omitted from these types of enums only (non-complex enums still have them). see the
+      [Complex enum support](#complex-enum-support) section for more details.
+  ```rust
+  use enum_ext::enum_extend;
+  
+  #[enum_extend(IntType = "i32")]
+  #[derive(Debug, Clone, PartialEq)]
+  pub enum DiscrExpression {
+      // singles
+      X10(u32) = 10,
+      // tuples
+      X25((i32,i16)) = 5 * 5,
+      // structs
+      Y26{foo: u32,bar: String} = 13 + 13,      
+  }
+  ```
 
 ### v0.4.5
 
@@ -345,4 +423,6 @@ fn main() {
 - Reject multiple `#[enum_def(...)]` attributes on the derive macro; the macro now returns a clear compile error if more
   than one `enum_def` attribute is present.
 - Use the local `EnumDefArgs::default()` directly and tidy up attribute parsing code paths for clarity.
-- Improve tests and validation across the macros; 
+- Improve tests and validation across the macros;
+
+
