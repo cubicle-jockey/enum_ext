@@ -315,7 +315,7 @@ enum CharType {
 pub(crate) fn parse_variants(
     enum_name: &Ident,
     variants: &Punctuated<Variant, Comma>,
-    int_type: &TokenStream2,
+    _int_type: &TokenStream2,
 ) -> Result<ParsedVariants, EnumMacroError> {
     let name = enum_name.clone();
     let mut enum_body = TokenStream2::new();
@@ -349,14 +349,9 @@ pub(crate) fn parse_variants(
         let variant_ident5 = variant.ident.clone();
         let variant_ident6 = variant.ident.clone();
 
-        let variant_value = if let Some((_eq, expr)) = &variant.discriminant {
-            let new_expr = quote! { #expr }.to_string();
-            let int_type_str = int_type.to_string();
-            let new_expr_with_type = format!("{}{}", new_expr, int_type_str);
-            Some((
-                _eq.clone(),
-                syn::parse_str::<syn::Expr>(&new_expr_with_type).unwrap(),
-            ))
+        let variant_value = if let Some((eq, expr)) = &variant.discriminant {
+            // Preserve the original discriminant expression as-is to support both literals and expressions
+            Some((eq.clone(), (*expr).clone()))
         } else {
             None
         };
@@ -485,9 +480,22 @@ pub(crate) fn append_int_fns(
     let int_type_added = !variants_with_values.is_empty();
 
     if int_type_added {
-        // Generate tokens for all variants with values
-        let from_int_tokens = variants_with_values.iter().map(|(ident, v)| {
-            quote! { #v => Some(#enum_name::#ident), }
+        // Build associated consts for each discriminant expression so we can match on constants
+        let items: Vec<(Ident, Ident, Expr)> = variants_with_values
+            .into_iter()
+            .map(|(ident, expr)| {
+                let const_name_str = format!("__ENUM_EXT_{}_{}", enum_name, ident).to_uppercase();
+                let const_ident = Ident::new(&const_name_str, Span::call_site());
+                (ident, const_ident, expr)
+            })
+            .collect();
+
+        let const_defs = items.iter().map(|(_ident, const_ident, expr)| {
+            quote! { const #const_ident: #int_type = (#expr); }
+        });
+
+        let match_arms = items.iter().map(|(ident, const_ident, _expr)| {
+            quote! { Self::#const_ident => Some(#enum_name::#ident), }
         });
 
         // Construct the function name string and parse it into an identifier.
@@ -499,11 +507,12 @@ pub(crate) fn append_int_fns(
 
         let int_helpers = if !has_copy {
             quote! {
+                #(#const_defs)*
                 /// Returns the enum variant from the integer value
                 #[inline]
                 pub const fn #from_fn_name(val: #int_type) -> Option<Self> {
                     match val {
-                        #(#from_int_tokens)*
+                        #(#match_arms)*
                         _ => None,
                     }
                 }
@@ -515,11 +524,12 @@ pub(crate) fn append_int_fns(
             }
         } else {
             quote! {
+                #(#const_defs)*
                 /// Returns the enum variant from the integer value
                 #[inline]
                 pub const fn #from_fn_name(val: #int_type) -> Option<Self> {
                     match val {
-                        #(#from_int_tokens)*
+                        #(#match_arms)*
                         _ => None,
                     }
                 }
