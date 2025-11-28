@@ -280,7 +280,7 @@ pub struct ParsedVariants {
     pub enum_body: TokenStream2,
     pub variant_list: TokenStream2,
     pub variant_ordinals: TokenStream2,
-    pub variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicHasher>,
+    pub variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicBuildHasher>,
     pub to_pascal_split: TokenStream2,
     pub from_pascal_split: TokenStream2,
     pub to_snake_case: TokenStream2,
@@ -345,7 +345,7 @@ pub(crate) fn parse_variants(
     let mut variant_from_ordinals = TokenStream2::new();
     let mut variant_ordinal = 0usize;
     let mut variant_ordinal2 = 0usize;
-    let mut variant_map = HashMap::with_hasher(DeterministicHasher::new());
+    let mut variant_map = HashMap::with_hasher(DeterministicBuildHasher);
     let mut to_pascal_split = TokenStream2::new();
     let mut from_pascal_split = TokenStream2::new();
     let mut to_snake_case_tokens = TokenStream2::new();
@@ -562,7 +562,7 @@ pub(crate) fn parse_variants(
 pub(crate) fn append_int_fns(
     fns: &mut TokenStream2,
     enum_name: &Ident,
-    variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicHasher>,
+    variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicBuildHasher>,
     int_type_str: &str,
     int_type: &TokenStream2,
     has_copy: bool,
@@ -1200,29 +1200,85 @@ pub(crate) fn generate_expanded_enum(
 /// this is not a secure or collision-free hasher and should not be used outside of this crate.
 /// - purpose is to guarantee consistent hashes
 pub(crate) struct DeterministicHasher {
-    value: u64,
+    state: u64,
 }
 
 impl DeterministicHasher {
+    #[inline]
     fn new() -> Self {
-        Self { value: 0 }
+        Self {
+            state: 0x1234_5678_9abc_def0,
+        }
+    }
+
+    #[inline]
+    fn mix(mut x: u64) -> u64 {
+        x ^= x >> 30;
+        x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        x ^= x >> 27;
+        x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
+        x ^= x >> 31;
+        x
+    }
+
+    #[inline]
+    fn add_block(&mut self, block: u64) {
+        let v = Self::mix(block ^ self.state);
+        self.state = self.state.wrapping_add(v);
     }
 }
 
 impl Hasher for DeterministicHasher {
+    #[inline]
     fn finish(&self) -> u64 {
-        self.value
+        // Final avalanche
+        Self::mix(self.state)
     }
 
+    #[inline]
     fn write(&mut self, bytes: &[u8]) {
-        for b in bytes {
-            self.value = self.value.rotate_left(8) + *b as u64;
+        let mut i = 0;
+        // process full 8-byte chunks
+        while i + 8 <= bytes.len() {
+            let mut block = 0u64;
+            block |= bytes[i + 0] as u64;
+            block |= (bytes[i + 1] as u64) << 8;
+            block |= (bytes[i + 2] as u64) << 16;
+            block |= (bytes[i + 3] as u64) << 24;
+            block |= (bytes[i + 4] as u64) << 32;
+            block |= (bytes[i + 5] as u64) << 40;
+            block |= (bytes[i + 6] as u64) << 48;
+            block |= (bytes[i + 7] as u64) << 56;
+
+            self.add_block(block);
+            i += 8;
+        }
+
+        // tail (0..7 bytes)
+        if i < bytes.len() {
+            let mut block = 0u64;
+            let mut shift = 0;
+            while i < bytes.len() {
+                block |= (bytes[i] as u64) << shift;
+                shift += 8;
+                i += 1;
+            }
+            self.add_block(block);
         }
     }
 }
 
-impl BuildHasher for DeterministicHasher {
-    type Hasher = Self;
+impl Default for DeterministicHasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct DeterministicBuildHasher;
+
+impl BuildHasher for DeterministicBuildHasher {
+    type Hasher = DeterministicHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
         DeterministicHasher::new()
