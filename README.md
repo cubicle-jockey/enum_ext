@@ -103,7 +103,7 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   ```toml
   [dependencies]
   rand = "0.9"
-  enum_ext = { version = "0.5.0", features = ["random"] }
+  enum_ext = { version = "0.5.1", features = ["random"] }
   ```
 
 Assigning attributes vary slightly depending on the macro used.
@@ -366,6 +366,11 @@ fn main() {
 ```
 
 ## Changes
+
+### v0.5.1
+
+- Improved internal deterministic hasher.
+- bumped dependencies.
 
 ### v0.5.0
 
