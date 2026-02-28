@@ -8,6 +8,8 @@
 - Improved macro maintainability by refactoring parts of expansion plumbing in `core` (including cleaner parsed-variant
   destructuring flow).
 - Updated docs and project policy details, including `rand = "0.10"` examples and explicit Rust edition/MSRV guidance.
+- Expanded `examples/` coverage to demonstrate nearly all generated feature groups, including navigation, filtering,
+  batch helpers, metadata APIs, and random-feature example compatibility updates.
 
 ### v0.5.1
 
