@@ -18,7 +18,7 @@ proc-macro = true
 quote = "1.0.42"
 syn = { version = "2.0.111", features = ["full", "fold"] }
 proc-macro2 = "1.0.103"
-rand = { version = "0.9", optional = true }
+rand = { version = "0.10", optional = true }
 
 [features]
 default = []
