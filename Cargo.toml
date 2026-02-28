@@ -8,6 +8,7 @@ repository = "https://github.com/cubicle-jockey/enum_ext"
 homepage = "https://github.com/cubicle-jockey/enum_ext"
 description = "procedural macro that enhances enums with additional methods and conversions"
 edition = "2024"
+rust-version = "1.85"
 exclude = ["target", "Cargo.lock"]
 license = "MIT OR Apache-2.0"
 
@@ -23,3 +24,6 @@ rand = { version = "0.10", optional = true }
 [features]
 default = []
 random = ["rand"]
+
+[dev-dependencies]
+trybuild = "1.0"

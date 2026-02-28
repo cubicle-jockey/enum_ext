@@ -1,4 +1,7 @@
 #![allow(unused, dead_code)]
+mod common;
+
+use common::assert_iter_order3;
 use enum_ext::enum_extend;
 
 #[test]
@@ -25,14 +28,7 @@ fn simple_1() {
         ord += 1;
     }
 
-    for (i, v) in Simple::iter().enumerate() {
-        match i {
-            0 => assert_eq!(v, &Simple::A),
-            1 => assert_eq!(v, &Simple::B),
-            2 => assert_eq!(v, &Simple::C),
-            _ => unreachable!(),
-        }
-    }
+    assert_iter_order3(Simple::iter(), [&Simple::A, &Simple::B, &Simple::C]);
 }
 
 #[test]
@@ -97,14 +93,7 @@ fn discriminant_1() {
         ord += 1;
     }
 
-    for (i, v) in Variant::iter().enumerate() {
-        match i {
-            0 => assert_eq!(v, &Variant::A),
-            1 => assert_eq!(v, &Variant::B),
-            2 => assert_eq!(v, &Variant::C),
-            _ => unreachable!(),
-        }
-    }
+    assert_iter_order3(Variant::iter(), [&Variant::A, &Variant::B, &Variant::C]);
 
     for x in Variant::list() {
         assert_eq!(Some(x.clone()), Variant::from_usize(x.as_usize()));

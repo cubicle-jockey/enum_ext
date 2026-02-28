@@ -1,0 +1,12 @@
+error: Parse error: Multiple `enum_def` attributes found; only one is allowed
+  --> tests/ui/duplicate_enum_def.rs:3:1
+   |
+ 3 | / enum_ext!(
+ 4 | |     #[enum_def(IntType = "u8")]
+ 5 | |     #[enum_def(IntType = "i32")]
+ 6 | |     pub enum DuplicateDef {
+...  |
+10 | | );
+   | |_^
+   |
+   = note: this error originates in the macro `enum_ext` (in Nightly builds, run with -Z macro-backtrace for more info)
