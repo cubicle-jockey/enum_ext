@@ -1,0 +1,12 @@
+error: Variant error: All complex enum variants must have explicit discriminants (e.g., = <int>)
+ --> tests/ui/complex_payload_missing_discriminant.rs:3:1
+  |
+3 | / enum_ext!(
+4 | |     #[enum_def(IntType = "u8")]
+5 | |     pub enum Complex {
+6 | |         Unit = 1,
+... |
+9 | | );
+  | |_^
+  |
+  = note: this error originates in the macro `enum_ext` (in Nightly builds, run with -Z macro-backtrace for more info)
