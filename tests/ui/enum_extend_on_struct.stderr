@@ -1,0 +1,7 @@
+error: enum_extend only works on enums
+ --> tests/ui/enum_extend_on_struct.rs:3:1
+  |
+3 | #[enum_extend]
+  | ^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `enum_extend` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,4 +1,6 @@
 use enum_ext::enum_ext;
+#[cfg(feature = "random")]
+use rand::RngExt;
 
 enum_ext! {
     #[derive(Debug, PartialEq)]

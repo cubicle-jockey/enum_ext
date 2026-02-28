@@ -1,5 +1,7 @@
 #![allow(unused, dead_code)]
 use enum_ext::{enum_ext, enum_extend};
+#[cfg(feature = "random")]
+use rand::RngExt;
 
 fn main() {
     // Both the `enum_ext` and `enum_extend` macros provide the same functionality. They only differ in the way they are called.

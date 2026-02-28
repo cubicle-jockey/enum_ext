@@ -1,5 +1,7 @@
 #![allow(unused, dead_code)]
 use enum_ext::{enum_ext, enum_extend};
+#[cfg(feature = "random")]
+use rand::RngExt;
 
 fn main() {
     // Both the `enum_ext` and `enum_extend` macros provide the same functionality. They only differ in the way they are called.
@@ -19,6 +21,9 @@ fn main() {
     list_and_count_example();
     iter_example();
     pascal_spaced_example();
+    string_case_example();
+    navigation_and_validation_example();
+    filtering_batch_and_metadata_example();
     pretty_print_example();
 }
 
@@ -238,6 +243,119 @@ fn pascal_spaced_example() {
     );
 }
 
+fn string_case_example() {
+    #[enum_extend]
+    #[derive(Debug, PartialEq)]
+    enum TicketStatus {
+        Backlog,
+        InDev,
+        InQA,
+        FinalCodeReview,
+    }
+
+    // snake_case + reverse conversion
+    assert_eq!(TicketStatus::InQA.snake_case(), "in_qa");
+    assert_eq!(
+        TicketStatus::FinalCodeReview.snake_case(),
+        "final_code_review"
+    );
+    assert_eq!(
+        TicketStatus::from_snake_case("final_code_review"),
+        Some(TicketStatus::FinalCodeReview)
+    );
+
+    // kebab-case + reverse conversion
+    assert_eq!(TicketStatus::InQA.kebab_case(), "in-qa");
+    assert_eq!(
+        TicketStatus::FinalCodeReview.kebab_case(),
+        "final-code-review"
+    );
+    assert_eq!(
+        TicketStatus::from_kebab_case("final-code-review"),
+        Some(TicketStatus::FinalCodeReview)
+    );
+}
+
+fn navigation_and_validation_example() {
+    #[enum_extend]
+    #[derive(Debug, Clone, PartialEq)]
+    enum Stage {
+        One,
+        Two,
+        Three,
+    }
+
+    // wrapping navigation
+    assert_eq!(Stage::One.next(), &Stage::Two);
+    assert_eq!(Stage::Three.next(), &Stage::One);
+    assert_eq!(Stage::One.previous(), &Stage::Three);
+
+    // linear navigation
+    assert_eq!(Stage::One.next_linear(), Some(&Stage::Two));
+    assert_eq!(Stage::Three.next_linear(), None);
+    assert_eq!(Stage::One.previous_linear(), None);
+    assert_eq!(Stage::Three.previous_linear(), Some(&Stage::Two));
+
+    // validation/comparison helpers
+    assert!(Stage::One.is_first());
+    assert!(Stage::Three.is_last());
+    assert!(Stage::One.comes_before(&Stage::Three));
+    assert!(Stage::Three.comes_after(&Stage::One));
+}
+
+fn filtering_batch_and_metadata_example() {
+    #[enum_extend]
+    #[derive(Debug, Clone, PartialEq)]
+    enum Workflow {
+        TestOne,
+        TestTwo,
+        SampleOne,
+        SampleTwo,
+        ExampleTest,
+    }
+
+    // filtering helpers
+    let containing_test = Workflow::variants_containing("Test");
+    assert_eq!(containing_test.len(), 3);
+
+    let starting_with_test = Workflow::variants_starting_with("Test");
+    assert_eq!(starting_with_test.len(), 2);
+
+    let ending_with_one = Workflow::variants_ending_with("One");
+    assert_eq!(ending_with_one.len(), 2);
+
+    // batch helpers
+    assert_eq!(
+        Workflow::slice(1, 4),
+        &[Workflow::TestTwo, Workflow::SampleOne, Workflow::SampleTwo]
+    );
+    assert_eq!(
+        Workflow::range(0..3),
+        &[Workflow::TestOne, Workflow::TestTwo, Workflow::SampleOne]
+    );
+    assert_eq!(
+        Workflow::first_n(2),
+        &[Workflow::TestOne, Workflow::TestTwo]
+    );
+    assert_eq!(
+        Workflow::last_n(2),
+        &[Workflow::SampleTwo, Workflow::ExampleTest]
+    );
+
+    // metadata helpers
+    assert_eq!(Workflow::ExampleTest.variant_name(), "ExampleTest");
+    assert_eq!(
+        Workflow::variant_names(),
+        vec![
+            "TestOne",
+            "TestTwo",
+            "SampleOne",
+            "SampleTwo",
+            "ExampleTest"
+        ]
+    );
+}
+
 fn pretty_print_example() {
     // Why is pretty_print useful?
     // `pretty_print()` returns a formatted string displaying the enum name and its variants.
@@ -303,5 +421,17 @@ mod tests {
     #[test]
     fn iter_example_test() {
         iter_example();
+    }
+    #[test]
+    fn string_case_example_test() {
+        string_case_example();
+    }
+    #[test]
+    fn navigation_and_validation_example_test() {
+        navigation_and_validation_example();
+    }
+    #[test]
+    fn filtering_batch_and_metadata_example_test() {
+        filtering_batch_and_metadata_example();
     }
 }

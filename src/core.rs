@@ -295,6 +295,49 @@ pub struct ParsedVariants {
     pub self_to_int_match_arms: TokenStream2,
 }
 
+impl ParsedVariants {
+    #[allow(clippy::type_complexity)]
+    fn into_parts(
+        self,
+    ) -> (
+        TokenStream2,
+        TokenStream2,
+        TokenStream2,
+        HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicBuildHasher>,
+        TokenStream2,
+        TokenStream2,
+        TokenStream2,
+        TokenStream2,
+        TokenStream2,
+        TokenStream2,
+        TokenStream2,
+        usize,
+        TokenStream2,
+        bool,
+        bool,
+        TokenStream2,
+    ) {
+        (
+            self.enum_body,
+            self.variant_list,
+            self.variant_ordinals,
+            self.variant_map,
+            self.to_pascal_split,
+            self.from_pascal_split,
+            self.to_snake_case,
+            self.from_snake_case,
+            self.to_kebab_case,
+            self.from_kebab_case,
+            self.variant_name_tokens,
+            self.variant_count,
+            self.variant_from_ordinals,
+            self.has_payloads,
+            self.has_discriminants,
+            self.self_to_int_match_arms,
+        )
+    }
+}
+
 /// Enum to track character types for split_pascal_case
 #[derive(PartialEq)]
 enum CharType {
@@ -772,7 +815,6 @@ pub(crate) fn generate_expanded_enum(
 
     let parsed_vars = parse_variants(name, variants, int_type)?;
 
-    // Parse variants
     let (
         enum_body,
         variant_list,
@@ -790,24 +832,7 @@ pub(crate) fn generate_expanded_enum(
         has_payloads,
         _has_discriminants,
         self_to_int_match_arms,
-    ) = (
-        parsed_vars.enum_body,
-        parsed_vars.variant_list,
-        parsed_vars.variant_ordinals,
-        parsed_vars.variant_map,
-        parsed_vars.to_pascal_split,
-        parsed_vars.from_pascal_split,
-        parsed_vars.to_snake_case,
-        parsed_vars.from_snake_case,
-        parsed_vars.to_kebab_case,
-        parsed_vars.from_kebab_case,
-        parsed_vars.variant_name_tokens,
-        parsed_vars.variant_count,
-        parsed_vars.variant_from_ordinals,
-        parsed_vars.has_payloads,
-        parsed_vars.has_discriminants,
-        parsed_vars.self_to_int_match_arms,
-    );
+    ) = parsed_vars.into_parts();
 
     // For complex enums (with payloads), certain APIs that require constructing variants
     // cannot be generated. We'll emit a common subset and add unit-only APIs conditionally.

@@ -102,9 +102,15 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   your `Cargo.toml`:
   ```toml
   [dependencies]
-  rand = "0.9"
+  rand = "0.10"
   enum_ext = { version = "0.5.1", features = ["random"] }
   ```
+
+## Rust Version Policy
+
+- This crate targets Rust `edition = "2024"`.
+- Minimum supported Rust version (MSRV) is **Rust 1.85.0**.
+- MSRV may be bumped in minor releases when required by edition, dependency, or macro-internals updates.
 
 When using `enum_ext!`, the attribute is applied in an `enum_def` parameter to the macro:
 
