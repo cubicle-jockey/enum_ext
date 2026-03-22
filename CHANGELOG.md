@@ -1,5 +1,34 @@
 # Changelog
 
+### v0.6.0
+
+- **Breaking:** Replaced `impl From<IntType>` with `impl TryFrom<IntType>` for enums with discriminants.
+  `From` violated Rust's infallibility contract by panicking on invalid values. Users must now call
+  `MyEnum::try_from(val)` instead of `MyEnum::from(val)` and handle the `Result<Self, ()>`.
+- Replaced internal `DeterministicHasher`/`HashMap` with a simple `Vec` for variant tracking, removing
+  ~150 lines of custom hasher code that didn't actually guarantee deterministic `HashMap` iteration order.
+- Unified `split_pascal_case`, `to_snake_case`, and `to_kebab_case` into a shared `convert_case()` helper,
+  eliminating near-identical implementations.
+- Extracted `variant_match_pattern()` helper to eliminate 6+ copy-pasted if/else blocks for building
+  match patterns across unit, tuple, and struct variants.
+- Removed the 16-element `into_parts()` tuple; `ParsedVariants` struct fields are now used directly.
+- Deduplicated unit vs payload enum branches by extracting common methods (`count`, `ordinal`,
+  `pascal_spaced`, `snake_case`, `kebab_case`, `variant_name`, `is_first`, `is_last`, `comes_before`,
+  `comes_after`) into a single unconditional block.
+- Replaced string-based `check_derive_traits` with proper `syn` path parsing via
+  `Punctuated::<Path, Token![,]>::parse_terminated`.
+- Extracted shared `resolve_int_type()` helper in `core.rs`, used by both `proc.rs` and `attr.rs`.
+- Simplified redundant clone, loop, and branch patterns throughout `core.rs`.
+- Added unit tests for `to_snake_case`, `to_kebab_case` edge cases (empty strings, single chars,
+  all-caps, mixed alphanumeric).
+- Removed duplicate 108-line doc comment from `proc.rs` (already included via `include_str!`).
+- Updated README.md, ATTR.md, and PROCS.md: added `TryFrom` to utility functions reference, fixed
+  stale cross-references, removed duplicated content (ATTR.md/PROCS.md now link to README for full
+  API reference), replaced raw HTML with markdown formatting, and added `from_ordinal` Clone prerequisite note.
+- Expanded examples: added `TryFrom`, discriminant expressions, Copy/const, and auto-derive demos
+  to `basic_disc.rs`; added `variant_name()` demo and missing test to `basic_no_disc.rs`; added
+  test module to `complex.rs`; removed unused `rand::RngExt` imports.
+
 ### v0.5.2
 
 - Added and expanded `trybuild` UI compile-fail coverage to lock in macro diagnostics and edge-case validation
