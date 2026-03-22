@@ -1,11 +1,9 @@
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::quote;
-use std::collections::HashMap;
-use std::hash::{BuildHasher, Hasher};
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{Attribute, Expr, LitStr, Token, Variant, Visibility};
+use syn::{Attribute, Expr, Fields, LitStr, Path, Token, Variant, Visibility};
 
 /// Returns true if the given string represents a supported valid integer type ("i8" through "usize").
 ///
@@ -49,6 +47,44 @@ impl std::fmt::Display for EnumMacroError {
 }
 
 impl std::error::Error for EnumMacroError {}
+
+/// Resolves the integer type from `EnumDefArgs`.
+///
+/// Returns `(int_type_tokens, int_type_str, int_type_specified)`.
+///
+/// # Errors
+///
+/// Returns `Err(EnumMacroError::ParseError)` if the specified type string cannot be parsed.
+pub(crate) fn resolve_int_type(
+    args: &EnumDefArgs,
+) -> Result<(TokenStream2, String, bool), EnumMacroError> {
+    let mut int_type = quote! { usize };
+    let mut int_type_str = "usize".to_string();
+    let int_type_specified = args.int_type.is_some();
+
+    if let Some(lit_str) = &args.int_type {
+        int_type_str = lit_str.value();
+        if !valid_int_type(&int_type_str) {
+            return Err(EnumMacroError::ParseError(format!(
+                "Invalid IntType: {}",
+                int_type_str
+            )));
+        }
+        match syn::parse_str::<syn::Type>(&int_type_str) {
+            Ok(parsed_ty) => {
+                int_type = quote! { #parsed_ty };
+            }
+            Err(error) => {
+                return Err(EnumMacroError::ParseError(format!(
+                    "Invalid IntType: {}",
+                    error
+                )));
+            }
+        }
+    }
+
+    Ok((int_type, int_type_str, int_type_specified))
+}
 
 pub(crate) struct EnumDefArgs {
     pub int_type: Option<LitStr>,
@@ -127,42 +163,27 @@ pub(crate) fn check_derive_traits(derive_attrs: &[Attribute]) -> DeriveSummary {
     for attr in derive_attrs {
         if attr.path().is_ident("derive") {
             summary.has_derive = true;
-            // I was unable to find a way to check inner Ident tokens in a proc_macro2::TokenStream without converting it to a string. #noob
-            match attr.meta {
-                syn::Meta::List(ref meta_list) => {
-                    meta_list
-                        .tokens
-                        .to_string()
-                        .split(',')
-                        .for_each(|x| match x.trim() {
-                            "Clone" => {
-                                summary.has_clone = true;
-                            }
-                            "Copy" => {
-                                summary.has_copy = true;
-                            }
-                            "Debug" => {
-                                summary.has_debug = true;
-                            }
-                            "Default" => {
-                                summary.has_default = true;
-                            }
-                            "Eq" => {
-                                summary.has_eq = true;
-                            }
-                            "Ord" => {
-                                summary.has_ord = true;
-                            }
-                            "PartialEq" => {
-                                summary.has_partial_eq = true;
-                            }
-                            "PartialOrd" => {
-                                summary.has_partial_ord = true;
-                            }
-                            _ => {}
-                        });
+            if let Ok(paths) = attr.parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
+            {
+                for path in &paths {
+                    if path.is_ident("Clone") {
+                        summary.has_clone = true;
+                    } else if path.is_ident("Copy") {
+                        summary.has_copy = true;
+                    } else if path.is_ident("Debug") {
+                        summary.has_debug = true;
+                    } else if path.is_ident("Default") {
+                        summary.has_default = true;
+                    } else if path.is_ident("Eq") {
+                        summary.has_eq = true;
+                    } else if path.is_ident("Ord") {
+                        summary.has_ord = true;
+                    } else if path.is_ident("PartialEq") {
+                        summary.has_partial_eq = true;
+                    } else if path.is_ident("PartialOrd") {
+                        summary.has_partial_ord = true;
+                    }
                 }
-                _ => {}
             }
         }
     }
@@ -170,32 +191,32 @@ pub(crate) fn check_derive_traits(derive_attrs: &[Attribute]) -> DeriveSummary {
     summary
 }
 
-/// Splits a PascalCase string into a space-separated string.
-///
-/// For example, "InQA" becomes "In QA".
+/// Converts a PascalCase string using the given separator and case transformation.
 ///
 /// # Arguments
 ///
-/// * `s` - The PascalCase string to split
+/// * `s` - The PascalCase string to convert
+/// * `separator` - The character to insert between words
+/// * `lowercase` - Whether to lowercase the output characters
 ///
 /// # Returns
 ///
-/// A new string with spaces inserted before uppercase letters that follow lowercase letters
-pub(crate) fn split_pascal_case(s: &str) -> String {
-    // Optimize by pre-allocating with extra capacity for spaces
+/// A new string with the specified separator and case applied
+fn convert_case(s: &str, separator: char, lowercase: bool) -> String {
     let mut result = String::with_capacity(s.len() + 5);
-
-    // Track the previous character to avoid calling chars().last() repeatedly
     let mut prev_char_type = CharType::None;
 
     for c in s.chars() {
         if c.is_uppercase() && prev_char_type == CharType::Lowercase {
-            result.push(' ');
+            result.push(separator);
         }
 
-        result.push(c);
+        if lowercase {
+            result.push(c.to_lowercase().next().unwrap_or(c));
+        } else {
+            result.push(c);
+        }
 
-        // Update previous character type
         prev_char_type = if c.is_uppercase() {
             CharType::Uppercase
         } else if c.is_lowercase() {
@@ -206,81 +227,34 @@ pub(crate) fn split_pascal_case(s: &str) -> String {
     }
 
     result
+}
+
+/// Splits a PascalCase string into a space-separated string.
+///
+/// For example, "InQA" becomes "In QA".
+pub(crate) fn split_pascal_case(s: &str) -> String {
+    convert_case(s, ' ', false)
 }
 
 /// Converts a PascalCase string to snake_case.
 ///
 /// For example, "InQA" becomes "in_qa".
-///
-/// # Arguments
-///
-/// * `s` - The PascalCase string to convert
-///
-/// # Returns
-///
-/// A new string in snake_case format
 pub(crate) fn to_snake_case(s: &str) -> String {
-    let mut result = String::with_capacity(s.len() + 5);
-    let mut prev_char_type = CharType::None;
-
-    for c in s.chars() {
-        if c.is_uppercase() && prev_char_type == CharType::Lowercase {
-            result.push('_');
-        }
-
-        result.push(c.to_lowercase().next().unwrap_or(c));
-
-        prev_char_type = if c.is_uppercase() {
-            CharType::Uppercase
-        } else if c.is_lowercase() {
-            CharType::Lowercase
-        } else {
-            CharType::Other
-        };
-    }
-
-    result
+    convert_case(s, '_', true)
 }
 
 /// Converts a PascalCase string to kebab-case.
 ///
 /// For example, "InQA" becomes "in-qa".
-///
-/// # Arguments
-///
-/// * `s` - The PascalCase string to convert
-///
-/// # Returns
-///
-/// A new string in kebab-case format
 pub(crate) fn to_kebab_case(s: &str) -> String {
-    let mut result = String::with_capacity(s.len() + 5);
-    let mut prev_char_type = CharType::None;
-
-    for c in s.chars() {
-        if c.is_uppercase() && prev_char_type == CharType::Lowercase {
-            result.push('-');
-        }
-
-        result.push(c.to_lowercase().next().unwrap_or(c));
-
-        prev_char_type = if c.is_uppercase() {
-            CharType::Uppercase
-        } else if c.is_lowercase() {
-            CharType::Lowercase
-        } else {
-            CharType::Other
-        };
-    }
-
-    result
+    convert_case(s, '-', true)
 }
 
 pub struct ParsedVariants {
     pub enum_body: TokenStream2,
     pub variant_list: TokenStream2,
     pub variant_ordinals: TokenStream2,
-    pub variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicBuildHasher>,
+    pub variant_map: Vec<(Ident, Option<(syn::token::Eq, Expr)>)>,
     pub to_pascal_split: TokenStream2,
     pub from_pascal_split: TokenStream2,
     pub to_snake_case: TokenStream2,
@@ -291,60 +265,30 @@ pub struct ParsedVariants {
     pub variant_count: usize,
     pub variant_from_ordinals: TokenStream2,
     pub has_payloads: bool,
-    pub has_discriminants: bool,
+    pub _has_discriminants: bool,
     pub self_to_int_match_arms: TokenStream2,
 }
 
-impl ParsedVariants {
-    #[allow(clippy::type_complexity)]
-    fn into_parts(
-        self,
-    ) -> (
-        TokenStream2,
-        TokenStream2,
-        TokenStream2,
-        HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicBuildHasher>,
-        TokenStream2,
-        TokenStream2,
-        TokenStream2,
-        TokenStream2,
-        TokenStream2,
-        TokenStream2,
-        TokenStream2,
-        usize,
-        TokenStream2,
-        bool,
-        bool,
-        TokenStream2,
-    ) {
-        (
-            self.enum_body,
-            self.variant_list,
-            self.variant_ordinals,
-            self.variant_map,
-            self.to_pascal_split,
-            self.from_pascal_split,
-            self.to_snake_case,
-            self.from_snake_case,
-            self.to_kebab_case,
-            self.from_kebab_case,
-            self.variant_name_tokens,
-            self.variant_count,
-            self.variant_from_ordinals,
-            self.has_payloads,
-            self.has_discriminants,
-            self.self_to_int_match_arms,
-        )
-    }
-}
-
-/// Enum to track character types for split_pascal_case
+/// Enum to track character types for case conversion
 #[derive(PartialEq)]
 enum CharType {
     None,
     Uppercase,
     Lowercase,
     Other,
+}
+
+/// Builds a match pattern for a variant that ignores any fields.
+///
+/// For unit variants: `Prefix::Variant`
+/// For tuple variants: `Prefix::Variant(..)`
+/// For struct variants: `Prefix::Variant { .. }`
+fn variant_match_pattern(prefix: &TokenStream2, ident: &Ident, fields: &Fields) -> TokenStream2 {
+    match fields {
+        Fields::Unit => quote! { #prefix::#ident },
+        Fields::Unnamed(_) => quote! { #prefix::#ident (..) },
+        Fields::Named(_) => quote! { #prefix::#ident { .. } },
+    }
 }
 
 /// Parses the variants of an enum.
@@ -356,39 +300,30 @@ enum CharType {
 ///
 /// * `enum_name` - The identifier of the enum.
 /// * `variants` - A punctuated list of the variants of the enum.
-/// * `int_type` - The integer type for discriminant values.
 ///
 /// # Returns
 ///
-/// A `Result<ParsedVariants, EnumMacroError>` containing:
-/// - `enum_body` - A token stream for the enum body.
-/// - `variant_list` - A token stream for the variant list.
-/// - `variant_ordinals` - A token stream for the variant ordinals.
-/// - `variant_map` - A hashmap mapping variant identifiers to their optional discriminant values.
-/// - `to_pascal_split` - A token stream for converting variants to pascal-spaced strings.
-/// - `from_pascal_split` - A token stream for converting pascal-spaced strings to variants.
-/// - `variant_count` - The count of variants.
-/// - `variant_from_ordinals` - A token stream for the variant from ordinals.
+/// A `Result<ParsedVariants, EnumMacroError>` containing all parsed variant information.
 ///
 /// # Examples
 ///
 /// ```text
-/// let parsed_variants = parse_variants(&name, &variants, &int_type)?;
+/// let parsed_variants = parse_variants(&name, &variants)?;
 /// ```
 pub(crate) fn parse_variants(
     enum_name: &Ident,
     variants: &Punctuated<Variant, Comma>,
-    _int_type: &TokenStream2,
 ) -> Result<ParsedVariants, EnumMacroError> {
     let name = enum_name.clone();
+    let name_tokens = quote! { #name };
+    let self_tokens = quote! { Self };
     let mut enum_body = TokenStream2::new();
     let mut variant_count = 0usize;
     let mut variant_list = TokenStream2::new();
     let mut variant_ordinals = TokenStream2::new();
     let mut variant_from_ordinals = TokenStream2::new();
-    let mut variant_ordinal = 0usize;
-    let mut variant_ordinal2 = 0usize;
-    let mut variant_map = HashMap::with_hasher(DeterministicBuildHasher);
+    let mut ordinal = 0usize;
+    let mut variant_map = Vec::new();
     let mut to_pascal_split = TokenStream2::new();
     let mut from_pascal_split = TokenStream2::new();
     let mut to_snake_case_tokens = TokenStream2::new();
@@ -401,151 +336,60 @@ pub(crate) fn parse_variants(
     let mut self_to_int_match_arms = TokenStream2::new();
 
     for variant in variants {
-        // Track if any variant has payloads (tuple or struct variants)
         let is_unit = variant.fields.is_empty();
         if !is_unit {
             has_payloads = true;
         }
 
-        let variant_ident = variant.ident.clone();
-        let variant_ident2 = variant.ident.clone();
-        let variant_ident3 = variant.ident.clone();
-        let variant_ident4 = variant.ident.clone();
-        let variant_ident5 = variant.ident.clone();
-        let variant_ident6 = variant.ident.clone();
+        let variant_ident = &variant.ident;
+        let pat = variant_match_pattern(&name_tokens, variant_ident, &variant.fields);
 
         let variant_value = if let Some((eq, expr)) = &variant.discriminant {
-            // Preserve the original discriminant expression as-is to support both literals and expressions
             has_discriminants = true;
             Some((eq.clone(), (*expr).clone()))
         } else {
             None
         };
 
-        variant_map.insert(variant_ident.clone(), variant_value.clone());
+        variant_map.push((variant_ident.clone(), variant_value.clone()));
 
-        let variant_tokens = quote! {
-            #variant,
-        };
-        enum_body.extend(variant_tokens);
+        enum_body.extend(quote! { #variant, });
 
         // For unit-only functionality (like list), we still build the tokens,
         // but they will only be used when appropriate.
-        let variant_list_tokens = quote! {
-            #name::#variant_ident2,
-        };
-        variant_list.extend(variant_list_tokens);
+        variant_list.extend(quote! { #name::#variant_ident, });
         variant_count += 1;
 
-        // Build the match pattern that ignores fields for complex variants
-        let pat = if is_unit {
-            quote! { #name::#variant_ident3 }
-        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
-            quote! { #name::#variant_ident3 (..) }
-        } else {
-            // Named fields
-            quote! { #name::#variant_ident3 { .. } }
-        };
+        variant_ordinals.extend(quote! { #pat => #ordinal, });
 
-        let variant_ordinals_tokens = quote! {
-            #pat => #variant_ordinal,
-        };
-        variant_ordinals.extend(variant_ordinals_tokens);
-        variant_ordinal += 1;
+        let ident_str = variant_ident.to_string();
+        let pascal_split_str = split_pascal_case(&ident_str);
+        let snake_case_str = to_snake_case(&ident_str);
+        let kebab_case_str = to_kebab_case(&ident_str);
 
-        let pascal_split_str = split_pascal_case(&variant_ident4.to_string());
-        let pat4 = if is_unit {
-            quote! { #name::#variant_ident4 }
-        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
-            quote! { #name::#variant_ident4 (..) }
-        } else {
-            quote! { #name::#variant_ident4 { .. } }
-        };
-        let variant_pascal_tokens = quote! {
-            #pat4 => #pascal_split_str,
-        };
-        to_pascal_split.extend(variant_pascal_tokens);
+        to_pascal_split.extend(quote! { #pat => #pascal_split_str, });
+        to_snake_case_tokens.extend(quote! { #pat => #snake_case_str, });
+        to_kebab_case_tokens.extend(quote! { #pat => #kebab_case_str, });
+        variant_name_tokens.extend(quote! { #pat => #ident_str, });
 
         // The reverse mappings produce a value; they will only be emitted for unit enums.
-        let variant_pascal_tokens = quote! {
-            #pascal_split_str => Some(#name::#variant_ident5),
-        };
-        from_pascal_split.extend(variant_pascal_tokens);
-
-        // Generate snake_case conversions
-        let snake_case_str = to_snake_case(&variant_ident4.to_string());
-        let pat_snake = if is_unit {
-            quote! { #name::#variant_ident4 }
-        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
-            quote! { #name::#variant_ident4 (..) }
-        } else {
-            quote! { #name::#variant_ident4 { .. } }
-        };
-        let variant_snake_tokens = quote! {
-            #pat_snake => #snake_case_str,
-        };
-        to_snake_case_tokens.extend(variant_snake_tokens);
-
-        let variant_snake_tokens = quote! {
-            #snake_case_str => Some(#name::#variant_ident5),
-        };
-        from_snake_case_tokens.extend(variant_snake_tokens);
-
-        // Generate kebab-case conversions
-        let kebab_case_str = to_kebab_case(&variant_ident4.to_string());
-        let pat_kebab = if is_unit {
-            quote! { #name::#variant_ident4 }
-        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
-            quote! { #name::#variant_ident4 (..) }
-        } else {
-            quote! { #name::#variant_ident4 { .. } }
-        };
-        let variant_kebab_tokens = quote! {
-            #pat_kebab => #kebab_case_str,
-        };
-        to_kebab_case_tokens.extend(variant_kebab_tokens);
-
-        let variant_kebab_tokens = quote! {
-            #kebab_case_str => Some(#name::#variant_ident5),
-        };
-        from_kebab_case_tokens.extend(variant_kebab_tokens);
-
-        // Generate variant name tokens for metadata extraction
-        let variant_name_str = variant_ident4.to_string();
-        let pat_name = if is_unit {
-            quote! { #name::#variant_ident4 }
-        } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
-            quote! { #name::#variant_ident4 (..) }
-        } else {
-            quote! { #name::#variant_ident4 { .. } }
-        };
-        let variant_name_match_tokens = quote! {
-            #pat_name => #variant_name_str,
-        };
-        variant_name_tokens.extend(variant_name_match_tokens);
+        from_pascal_split.extend(quote! { #pascal_split_str => Some(#name::#variant_ident), });
+        from_snake_case_tokens.extend(quote! { #snake_case_str => Some(#name::#variant_ident), });
+        from_kebab_case_tokens.extend(quote! { #kebab_case_str => Some(#name::#variant_ident), });
 
         // from ordinal constructs a value; only used for unit enums
-        let variant_ordinals_tokens = quote! {
-            #variant_ordinal2 => Some(#name::#variant_ident6),
-        };
-        variant_from_ordinals.extend(variant_ordinals_tokens);
-        variant_ordinal2 += 1;
+        variant_from_ordinals.extend(quote! { #ordinal => Some(#name::#variant_ident), });
 
         // If this variant has an explicit discriminant, prepare a self->int match arm using a const
-        if let Some((_eq, _expr)) = &variant.discriminant {
+        if variant.discriminant.is_some() {
             let const_name_str =
                 format!("__ENUM_EXT_{}_{}", enum_name, variant_ident).to_uppercase();
             let const_ident = Ident::new(&const_name_str, Span::call_site());
-            let pat_self = if is_unit {
-                quote! { Self::#variant_ident }
-            } else if matches!(variant.fields, syn::Fields::Unnamed(_)) {
-                quote! { Self::#variant_ident (..) }
-            } else {
-                quote! { Self::#variant_ident { .. } }
-            };
-            let arm = quote! { #pat_self => Self::#const_ident, };
-            self_to_int_match_arms.extend(arm);
+            let self_pat = variant_match_pattern(&self_tokens, variant_ident, &variant.fields);
+            self_to_int_match_arms.extend(quote! { #self_pat => Self::#const_ident, });
         }
+
+        ordinal += 1;
     }
 
     Ok(ParsedVariants {
@@ -563,7 +407,7 @@ pub(crate) fn parse_variants(
         variant_count,
         variant_from_ordinals,
         has_payloads,
-        has_discriminants,
+        _has_discriminants: has_discriminants,
         self_to_int_match_arms,
     })
 }
@@ -605,7 +449,7 @@ pub(crate) fn parse_variants(
 pub(crate) fn append_int_fns(
     fns: &mut TokenStream2,
     enum_name: &Ident,
-    variant_map: HashMap<Ident, Option<(syn::token::Eq, Expr)>, DeterministicBuildHasher>,
+    variant_map: Vec<(Ident, Option<(syn::token::Eq, Expr)>)>,
     int_type_str: &str,
     int_type: &TokenStream2,
     has_copy: bool,
@@ -615,7 +459,7 @@ pub(crate) fn append_int_fns(
     // Filter the map first to avoid empty matches
     let variants_with_values: Vec<_> = variant_map
         .into_iter()
-        .filter_map(|(ident, value)| value.map(|v| (ident, v.1)))
+        .filter_map(|(ident, value)| value.map(|(_, expr)| (ident, expr)))
         .collect();
 
     let int_type_added = !variants_with_values.is_empty();
@@ -805,17 +649,17 @@ pub(crate) fn generate_expanded_enum(
     int_type: &TokenStream2,
     int_type_specified: bool,
 ) -> Result<TokenStream2, EnumMacroError> {
-    if variants.len() == 0 {
-        //panic!("cannot generate methods for empty enums");
+    if variants.is_empty() {
         return Err(EnumMacroError::VariantError(
             "cannot generate methods for empty enums".to_owned(),
         ));
     }
     let derive_summary = check_derive_traits(attrs);
 
-    let parsed_vars = parse_variants(name, variants, int_type)?;
+    let pv = parse_variants(name, variants)?;
 
-    let (
+    // Destructure to avoid partial-move issues (append_int_fns consumes variant_map)
+    let ParsedVariants {
         enum_body,
         variant_list,
         variant_ordinals,
@@ -830,37 +674,85 @@ pub(crate) fn generate_expanded_enum(
         variant_count,
         variant_from_ordinals,
         has_payloads,
-        _has_discriminants,
+        _has_discriminants: _,
         self_to_int_match_arms,
-    ) = parsed_vars.into_parts();
+    } = pv;
 
     // For complex enums (with payloads), certain APIs that require constructing variants
     // cannot be generated. We'll emit a common subset and add unit-only APIs conditionally.
     let mut enum_fns = TokenStream2::new();
 
+    // Common methods emitted for all enums (unit and complex)
+    enum_fns.extend(quote! {
+        /// Returns the number of variants in the enum
+        #[inline]
+        pub const fn count() -> usize {
+            #variant_count
+        }
+        /// Returns the ordinal of the variant
+        #[inline]
+        pub const fn ordinal(&self) -> usize {
+            match self {
+                #variant_ordinals
+            }
+        }
+        /// Returns true if the ordinal is valid for the enum
+        #[inline]
+        pub const fn valid_ordinal(ordinal : usize) -> bool {
+            ordinal < #variant_count
+        }
+        /// Returns the variant name in spaced PascalCase
+        /// * For example, MyEnum::InQA.pascal_spaced() returns "In QA"
+        pub const fn pascal_spaced(&self) -> &'static str {
+            match self {
+                #to_pascal_split
+            }
+        }
+        /// Returns the variant name in snake_case
+        /// * For example, MyEnum::InQA.snake_case() returns "in_qa"
+        pub const fn snake_case(&self) -> &'static str {
+            match self {
+                #to_snake_case
+            }
+        }
+        /// Returns the variant name in kebab-case
+        /// * For example, MyEnum::InQA.kebab_case() returns "in-qa"
+        pub const fn kebab_case(&self) -> &'static str {
+            match self {
+                #to_kebab_case
+            }
+        }
+        /// Returns the variant name as a string (metadata extraction)
+        pub const fn variant_name(&self) -> &'static str {
+            match self {
+                #variant_name_tokens
+            }
+        }
+        /// Check if this is the first variant (ordinal 0)
+        pub const fn is_first(&self) -> bool {
+            self.ordinal() == 0
+        }
+        /// Check if this is the last variant
+        pub const fn is_last(&self) -> bool {
+            self.ordinal() == #variant_count - 1
+        }
+        /// Compare ordinal positions - returns true if self comes before other
+        pub const fn comes_before(&self, other: &Self) -> bool {
+            self.ordinal() < other.ordinal()
+        }
+        /// Compare ordinal positions - returns true if self comes after other
+        pub const fn comes_after(&self, other: &Self) -> bool {
+            self.ordinal() > other.ordinal()
+        }
+    });
+
+    // Unit-only methods that require constructing variants
     if !has_payloads {
         enum_fns.extend(quote! {
             /// Returns an array of all variants in the enum
             #[inline]
             pub const fn list() -> [#name; #variant_count] {
                 [#variant_list]
-            }
-            /// Returns the number of variants in the enum
-            #[inline]
-            pub const fn count() -> usize {
-                #variant_count
-            }
-            /// Returns the ordinal of the variant
-            #[inline]
-            pub const fn ordinal(&self) -> usize {
-                match self {
-                    #variant_ordinals
-                }
-            }
-            /// Returns true if the ordinal is valid for the enum
-            #[inline]
-            pub const fn valid_ordinal(ordinal : usize) -> bool {
-                ordinal < #variant_count
             }
             /// Returns &Self from the ordinal.
             pub const fn ref_from_ordinal(ord: usize) -> Option<&'static Self> {
@@ -875,13 +767,6 @@ pub(crate) fn generate_expanded_enum(
                 const list : [#name; #variant_count] = #name::list();
                 list.iter()
             }
-            /// Returns the variant name in spaced PascalCase
-            /// * For example, MyEnum::InQA.pascal_spaced() returns "In QA"
-            pub const fn pascal_spaced(&self) -> &'static str {
-                match self {
-                    #to_pascal_split
-                }
-            }
             /// Returns the variant from the spaced PascalCase name
             /// * For example, MyEnum::from_pascal_spaced("In QA") returns Some(MyEnum::InQA)
             pub fn from_pascal_spaced(s: &str) -> Option<Self> {
@@ -890,26 +775,12 @@ pub(crate) fn generate_expanded_enum(
                     _ => None,
                 }
             }
-            /// Returns the variant name in snake_case
-            /// * For example, MyEnum::InQA.snake_case() returns "in_qa"
-            pub const fn snake_case(&self) -> &'static str {
-                match self {
-                    #to_snake_case
-                }
-            }
             /// Returns the variant from the snake_case name
             /// * For example, MyEnum::from_snake_case("in_qa") returns Some(MyEnum::InQA)
             pub fn from_snake_case(s: &str) -> Option<Self> {
                 match s {
                     #from_snake_case
                     _ => None,
-                }
-            }
-            /// Returns the variant name in kebab-case
-            /// * For example, MyEnum::InQA.kebab_case() returns "in-qa"
-            pub const fn kebab_case(&self) -> &'static str {
-                match self {
-                    #to_kebab_case
                 }
             }
             /// Returns the variant from the kebab-case name
@@ -954,22 +825,6 @@ pub(crate) fn generate_expanded_enum(
                     Self::ref_from_ordinal(current_ordinal - 1)
                 }
             }
-            /// Check if this is the first variant (ordinal 0)
-            pub const fn is_first(&self) -> bool {
-                self.ordinal() == 0
-            }
-            /// Check if this is the last variant
-            pub const fn is_last(&self) -> bool {
-                self.ordinal() == #variant_count - 1
-            }
-            /// Compare ordinal positions - returns true if self comes before other
-            pub const fn comes_before(&self, other: &Self) -> bool {
-                self.ordinal() < other.ordinal()
-            }
-            /// Compare ordinal positions - returns true if self comes after other
-            pub const fn comes_after(&self, other: &Self) -> bool {
-                self.ordinal() > other.ordinal()
-            }
             /// Returns variants whose names contain the substring
             pub fn variants_containing(substring: &str) -> Vec<&'static Self> {
                 Self::iter()
@@ -1011,75 +866,9 @@ pub(crate) fn generate_expanded_enum(
                 let start = if n >= #variant_count { 0 } else { #variant_count - n };
                 Self::slice(start, #variant_count)
             }
-            /// Returns the variant name as a string (metadata extraction)
-            pub const fn variant_name(&self) -> &'static str {
-                match self {
-                    #variant_name_tokens
-                }
-            }
             /// Returns all variant names as a vector of strings
             pub fn variant_names() -> Vec<&'static str> {
                 Self::iter().map(|v| v.variant_name()).collect()
-            }
-        });
-    } else {
-        enum_fns.extend(quote! {
-            /// Returns the number of variants in the enum
-            #[inline]
-            pub const fn count() -> usize {
-                #variant_count
-            }
-            /// Returns the ordinal of the variant
-            #[inline]
-            pub const fn ordinal(&self) -> usize {
-                match self {
-                    #variant_ordinals
-                }
-            }
-            /// Returns true if the ordinal is valid for the enum
-            #[inline]
-            pub const fn valid_ordinal(ordinal : usize) -> bool {
-                ordinal < #variant_count
-            }
-            /// Returns the variant name in spaced PascalCase
-            pub const fn pascal_spaced(&self) -> &'static str {
-                match self {
-                    #to_pascal_split
-                }
-            }
-            /// Returns the variant name in snake_case
-            pub const fn snake_case(&self) -> &'static str {
-                match self {
-                    #to_snake_case
-                }
-            }
-            /// Returns the variant name in kebab-case
-            pub const fn kebab_case(&self) -> &'static str {
-                match self {
-                    #to_kebab_case
-                }
-            }
-            /// Returns the variant name as a string (metadata extraction)
-            pub const fn variant_name(&self) -> &'static str {
-                match self {
-                    #variant_name_tokens
-                }
-            }
-            /// Check if this is the first variant (ordinal 0)
-            pub const fn is_first(&self) -> bool {
-                self.ordinal() == 0
-            }
-            /// Check if this is the last variant
-            pub const fn is_last(&self) -> bool {
-                self.ordinal() == #variant_count - 1
-            }
-            /// Compare ordinal positions - returns true if self comes before other
-            pub const fn comes_before(&self, other: &Self) -> bool {
-                self.ordinal() < other.ordinal()
-            }
-            /// Compare ordinal positions - returns true if self comes after other
-            pub const fn comes_after(&self, other: &Self) -> bool {
-                self.ordinal() > other.ordinal()
             }
         });
     }
@@ -1108,14 +897,7 @@ pub(crate) fn generate_expanded_enum(
     let mut needed_derives = TokenStream2::new();
     // Validate complex enum discriminants: all must be specified to support integer conversions
     if has_payloads {
-        let mut missing = false;
-        for v in variant_map.values() {
-            if v.is_none() {
-                missing = true;
-                break;
-            }
-        }
-        if missing {
+        if variant_map.iter().any(|(_, v)| v.is_none()) {
             return Err(EnumMacroError::VariantError(
                 "All complex enum variants must have explicit discriminants (e.g., = <int>)"
                     .to_owned(),
@@ -1136,18 +918,11 @@ pub(crate) fn generate_expanded_enum(
 
     // Add Clone derive if needed
     let mut clone_added = false;
-    if int_type_added {
-        if !derive_summary.has_derive {
-            clone_added = true;
-            needed_derives.extend(quote! {
-                #[derive(Clone)]
-            });
-        } else if !derive_summary.has_clone {
-            clone_added = true;
-            needed_derives.extend(quote! {
-                #[derive(Clone)]
-            });
-        }
+    if int_type_added && !derive_summary.has_clone {
+        clone_added = true;
+        needed_derives.extend(quote! {
+            #[derive(Clone)]
+        });
     }
 
     // Add repr attribute if needed (emit if user specified IntType or if discriminants exist),
@@ -1198,124 +973,68 @@ pub(crate) fn generate_expanded_enum(
         }
     };
 
-    // Add From implementation if int_type is specified (only for unit enums where construction is possible)
+    // Add TryFrom implementation if int_type is specified (only for unit enums where construction is possible)
     if int_type_added && !has_payloads {
         let from_fn_name_str = format!("from_{}", int_type_str);
         let from_fn_name = Ident::new(&from_fn_name_str, Span::call_site());
-        let impl_from = quote! {
-            impl From<#int_type> for #name {
-                /// Returns the enum variant from the integer value.
-                /// <br><br>
-                /// This will panic if the integer value is not a valid discriminant. Use the #from_fn_name or `try_from` functions
-                /// instead if you want to handle invalid values.
+        let impl_try_from = quote! {
+            impl TryFrom<#int_type> for #name {
+                type Error = ();
+                /// Attempts to convert an integer value to the enum variant.
+                /// Returns `Err(())` if the integer value is not a valid discriminant.
                 #[inline]
-                fn from(val: #int_type) -> Self {
-                    Self::#from_fn_name(val).unwrap()
+                fn try_from(val: #int_type) -> Result<Self, Self::Error> {
+                    Self::#from_fn_name(val).ok_or(())
                 }
             }
         };
 
-        expanded_enum.extend(impl_from);
+        expanded_enum.extend(impl_try_from);
     }
 
     Ok(expanded_enum)
 }
 
-/// ### Deterministic Hasher
-/// this is not a secure or collision-free hasher and should not be used outside of this crate.
-/// - purpose is to guarantee consistent hashes
-pub(crate) struct DeterministicHasher {
-    state: u64,
-}
-
-impl DeterministicHasher {
-    #[inline]
-    fn new() -> Self {
-        Self {
-            state: 0x1234_5678_9abc_def0,
-        }
-    }
-
-    #[inline]
-    fn mix(mut x: u64) -> u64 {
-        x ^= x >> 30;
-        x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        x ^= x >> 27;
-        x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
-        x ^= x >> 31;
-        x
-    }
-
-    #[inline]
-    fn add_block(&mut self, block: u64) {
-        let v = Self::mix(block ^ self.state);
-        self.state = self.state.wrapping_add(v);
-    }
-}
-
-impl Hasher for DeterministicHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        // Final avalanche
-        Self::mix(self.state)
-    }
-
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        let mut i = 0;
-        // process full 8-byte chunks
-        while i + 8 <= bytes.len() {
-            let mut block = 0u64;
-            block |= bytes[i + 0] as u64;
-            block |= (bytes[i + 1] as u64) << 8;
-            block |= (bytes[i + 2] as u64) << 16;
-            block |= (bytes[i + 3] as u64) << 24;
-            block |= (bytes[i + 4] as u64) << 32;
-            block |= (bytes[i + 5] as u64) << 40;
-            block |= (bytes[i + 6] as u64) << 48;
-            block |= (bytes[i + 7] as u64) << 56;
-
-            self.add_block(block);
-            i += 8;
-        }
-
-        // tail (0..7 bytes)
-        if i < bytes.len() {
-            let mut block = 0u64;
-            let mut shift = 0;
-            while i < bytes.len() {
-                block |= (bytes[i] as u64) << shift;
-                shift += 8;
-                i += 1;
-            }
-            self.add_block(block);
-        }
-    }
-}
-
-impl Default for DeterministicHasher {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct DeterministicBuildHasher;
-
-impl BuildHasher for DeterministicBuildHasher {
-    type Hasher = DeterministicHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        DeterministicHasher::new()
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use super::*;
 
     #[test]
     fn pascal_case() {
-        assert_eq!(super::split_pascal_case("MyEnum"), "My Enum");
-        assert_eq!(super::split_pascal_case("InQA"), "In QA");
+        assert_eq!(split_pascal_case("MyEnum"), "My Enum");
+        assert_eq!(split_pascal_case("InQA"), "In QA");
+        assert_eq!(split_pascal_case(""), "");
+        assert_eq!(split_pascal_case("A"), "A");
+        assert_eq!(split_pascal_case("URL"), "URL");
+        assert_eq!(split_pascal_case("V2Ray"), "V2Ray");
+        assert_eq!(split_pascal_case("already"), "already");
+        assert_eq!(split_pascal_case("FinalQA"), "Final QA");
+        assert_eq!(split_pascal_case("CodeReview"), "Code Review");
+    }
+
+    #[test]
+    fn snake_case() {
+        assert_eq!(to_snake_case("MyEnum"), "my_enum");
+        assert_eq!(to_snake_case("InQA"), "in_qa");
+        assert_eq!(to_snake_case(""), "");
+        assert_eq!(to_snake_case("A"), "a");
+        assert_eq!(to_snake_case("URL"), "url");
+        assert_eq!(to_snake_case("V2Ray"), "v2ray");
+        assert_eq!(to_snake_case("already"), "already");
+        assert_eq!(to_snake_case("FinalQA"), "final_qa");
+        assert_eq!(to_snake_case("CodeReview"), "code_review");
+    }
+
+    #[test]
+    fn kebab_case() {
+        assert_eq!(to_kebab_case("MyEnum"), "my-enum");
+        assert_eq!(to_kebab_case("InQA"), "in-qa");
+        assert_eq!(to_kebab_case(""), "");
+        assert_eq!(to_kebab_case("A"), "a");
+        assert_eq!(to_kebab_case("URL"), "url");
+        assert_eq!(to_kebab_case("V2Ray"), "v2ray");
+        assert_eq!(to_kebab_case("already"), "already");
+        assert_eq!(to_kebab_case("FinalQA"), "final-qa");
+        assert_eq!(to_kebab_case("CodeReview"), "code-review");
     }
 }

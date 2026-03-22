@@ -1,116 +1,20 @@
-# Enum Extension Library
+# `enum_ext!` — Procedural Macro
 
-[![Rust](https://github.com/cubicle-jockey/enum_ext/actions/workflows/rust.yml/badge.svg)](https://github.com/cubicle-jockey/enum_ext/actions/workflows/rust.yml)
-[![Dependency Review](https://github.com/cubicle-jockey/enum_ext/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/cubicle-jockey/enum_ext/actions/workflows/dependency-review.yml)
 [![Crate](https://img.shields.io/crates/v/enum_ext.svg)](https://crates.io/crates/enum_ext)
 [![API](https://docs.rs/enum_ext/badge.svg)](https://docs.rs/enum_ext)
 
-This Rust crate provides `procedural` and `attribute` macros that enhance Rust enums with additional methods and
-conversions. It simplifies working with enums by automatically generating utility methods for common tasks such as
-retrieving a list of variants, counting variants, and converting between discriminants and integer types.
+The `enum_ext!` procedural macro enhances Rust enums with additional methods and conversions.
+See the [README](./README.md) for the full list of generated utility functions and features.
 
-See the `enum_ext!` and `#[enum_extend]` macro examples below for more information.
-
-Both macros generate the same utility methods, so you can choose the one that best fits your coding style.
-
-## Utility Functions
-
-### Core Functions
-
-- **`list()`**: Returns an array containing all variants of the enum.
-- **`count()`**: Returns the number of variants in the enum.
-- **`ordinal()`**: Returns the ordinal (index) of a variant.
-- **`from_ordinal(ordinal: usize)`**: Returns the variant corresponding to the given ordinal.
-- **`ref_from_ordinal(ordinal: usize)`**: Returns a reference to the variant corresponding to the given ordinal.
-- **`valid_ordinal(ordinal: usize)`**: Checks if the given ordinal is valid for the enum.
-- **`iter()`**: Returns an iterator over all the variants of the enum.
-- **`pretty_print()`**: Returns a formatted string displaying the enum and all its variants in a pretty-print format.
-
-### String Conversion Functions
-
-- **`pascal_spaced(&self)`**: Converts the variant name to spaced PascalCase. For instance, `InQA` becomes `"In QA"`.
-- **`from_pascal_spaced(name: &str)`**: Returns the variant corresponding to the spaced PascalCase name. For example,
-  `"In QA"` becomes `InQA`.
-- **`snake_case(&self)`**: Converts the variant name to snake_case. For instance, `InQA` becomes `"in_qa"`.
-- **`from_snake_case(name: &str)`**: Returns the variant corresponding to the snake_case name. For example, `"in_qa"`
-  becomes `InQA`.
-- **`kebab_case(&self)`**: Converts the variant name to kebab-case. For instance, `InQA` becomes `"in-qa"`.
-- **`from_kebab_case(name: &str)`**: Returns the variant corresponding to the kebab-case name. For example, `"in-qa"`
-  becomes `InQA`.
-
-### Navigation Functions
-
-- **`next(&self)`**: Returns the next variant in ordinal order (wraps around to first when at last).
-- **`previous(&self)`**: Returns the previous variant in ordinal order (wraps around to last when at first).
-- **`next_linear(&self)`**: Returns the next variant without wrapping (returns `None` at end).
-- **`previous_linear(&self)`**: Returns the previous variant without wrapping (returns `None` at start).
-
-### Validation Functions
-
-- **`is_first(&self)`**: Returns `true` if this is the first variant (ordinal 0).
-- **`is_last(&self)`**: Returns `true` if this is the last variant.
-- **`comes_before(&self, other: &Self)`**: Returns `true` if this variant comes before the other in ordinal order.
-- **`comes_after(&self, other: &Self)`**: Returns `true` if this variant comes after the other in ordinal order.
-
-### Filtering Functions
-
-- **`variants_containing(substring: &str)`**: Returns variants whose names contain the substring.
-- **`variants_starting_with(prefix: &str)`**: Returns variants whose names start with the prefix.
-- **`variants_ending_with(suffix: &str)`**: Returns variants whose names end with the suffix.
-
-### Batch Operations
-
-- **`slice(start: usize, end: usize)`**: Returns a slice of variants from start to end ordinal.
-- **`range(range: core::ops::Range<usize>)`**: Returns variants in the specified ordinal range.
-- **`first_n(n: usize)`**: Returns the first N variants.
-- **`last_n(n: usize)`**: Returns the last N variants.
-
-### Metadata Functions
-
-- **`variant_name(&self)`**: Returns the variant name as a string.
-- **`variant_names()`**: Returns all variant names as a vector of strings.
-
-### Random Selection (Optional Feature)
-
-- **`random()`**: Returns a random variant (requires `"random"` feature).
-- **`random_with_rng<R: Rng>(rng: &mut R)`**: Returns a random variant using provided RNG (requires `"random"` feature).
-
-### Integer Conversion Functions (When IntType is specified)
-
-- **`from_<IntType>(value: <IntType>)`** and **`as_<IntType>(&self)`**: Convert to and from the specified integer type,
-  if defined in the attributes.
-    - For example, `from_i32(10)` and `as_i32()` if `IntType = "i32"`, or `from_u32(10)` and `as_u32()` if
-      `IntType = "u32"`, etc.
-
-### `See examples in the repository for more information.`
+For the attribute macro variant, see [`#[enum_extend]`](./ATTR.md).
 
 ## Attributes
 
 Attributes are optional and used to customize the generated methods.
 
-* `IntType` is currently the only attribute supported and specifies the discriminant type for conversion methods. The
-  generated methods allow
-  conversion from this type to an enum variant and vice versa. Supported types include standard Rust
-  integer types like `i32`, `u32`, `i64`, etc. If this attribute is not specified, `usize` is used as the default.
+* `IntType` specifies the discriminant type for conversion methods. Supported types include standard Rust
+  integer types like `i32`, `u32`, `i64`, etc. If not specified, `usize` is used as the default.
     * **Note**: If the enum has discriminant values, `#[derive(Clone)]` is added to the enum (if not already present).
-
-## Features
-
-This crate supports optional features that can be enabled in your `Cargo.toml`:
-
-* `random` - Enables random variant selection functionality (`random()` and `random_with_rng()` methods). Add this to
-  your `Cargo.toml`:
-  ```toml
-  [dependencies]
-  rand = "0.10"
-  enum_ext = { version = "0.5.1", features = ["random"] }
-  ```
-
-## Rust Version Policy
-
-- This crate targets Rust `edition = "2024"`.
-- Minimum supported Rust version (MSRV) is **Rust 1.85.0**.
-- MSRV may be bumped in minor releases when required by edition, dependency, or macro-internals updates.
 
 When using `enum_ext!`, the attribute is applied in an `enum_def` parameter to the macro:
 
@@ -130,7 +34,7 @@ enum_ext!(
 
 ## Usage
 
-### Using the `enum_ext!` Procedural Macro
+### Basic Example
 
 To use the `enum_ext!` macro, simply include it in your Rust project and apply it to your enum definitions. Here's an
 example:
@@ -195,7 +99,7 @@ fn main() {
 }
 ```
 
-Additional utility methods are generated for the enum variants:
+### Additional Utility Methods
 
 ```rust
 
@@ -260,10 +164,10 @@ As of v0.5.0, enums with payloads (tuple and struct variants) are supported by t
 
 Requirements:
 
-- Every payload-carrying variant must have an explicit discriminant expression (e.g., A(u32)<u><b> = 4</b></u>). The
+- Every payload-carrying variant must have an explicit discriminant expression (e.g., `A(u32) = 4`). The
   macro emits a compile_error! if any complex variant lacks a discriminant.
-- #[repr(..)] is emitted automatically when IntType is specified or when discriminants are present. If IntType is not
-  specified, the default conversion target is usize and as_usize() will be generated.
+- `#[repr(..)]` is emitted automatically when IntType is specified or when discriminants are present. If IntType is not
+  specified, the default conversion target is usize and `as_usize()` will be generated.
 
 Generated API for complex enums:
 
@@ -275,22 +179,24 @@ Generated API for complex enums:
 - Omitted for complex enums:
     - list(), iter(), slice(), range(), first_n(), last_n()
     - from_ordinal(), ref_from_ordinal(), next(), previous(), next_linear(), previous_linear()
-    - `from_<IntType>(...)`, `impl From<<IntType>>`
+    - `from_<IntType>(...)`, `impl TryFrom<<IntType>>`
     - from_pascal_spaced(...), from_snake_case(...), from_kebab_case(...), variant_names()
     - random() helpers (feature = "random")
 
 Example:
 
 ```rust
-use enum_ext::enum_extend;
+use enum_ext::enum_ext;
 
-#[enum_extend(IntType = "u32")]
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Complex {
-    AlphaOne(u32) = 4,
-    BetaTwo((u32, i16)) = 8,
-    CharlieThree { fred: u32, barny: i16 } = 16,
-}
+enum_ext!(
+    #[enum_def(IntType = "u32")]  // IntType is optional; defaults to usize when omitted
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    enum Complex {
+        AlphaOne(u32) = 4,
+        BetaTwo((u32, i16)) = 8,
+        CharlieThree { fred: u32, barny: i16 } = 16,
+    }
+);
 
 fn main() {
     let a = Complex::AlphaOne(10);

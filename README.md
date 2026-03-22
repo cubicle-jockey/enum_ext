@@ -20,7 +20,8 @@ Both macros generate the same utility methods, so you can choose the one that be
 - **`list()`**: Returns an array containing all variants of the enum.
 - **`count()`**: Returns the number of variants in the enum.
 - **`ordinal()`**: Returns the ordinal (index) of a variant.
-- **`from_ordinal(ordinal: usize)`**: Returns the variant corresponding to the given ordinal.
+- **`from_ordinal(ordinal: usize)`**: Returns the variant corresponding to the given ordinal. *(Requires `Clone` to be
+  derived.)*
 - **`ref_from_ordinal(ordinal: usize)`**: Returns a reference to the variant corresponding to the given ordinal.
 - **`valid_ordinal(ordinal: usize)`**: Checks if the given ordinal is valid for the enum.
 - **`iter()`**: Returns an iterator over all the variants of the enum.
@@ -81,6 +82,8 @@ Both macros generate the same utility methods, so you can choose the one that be
   if defined in the attributes.
     - For example, `from_i32(10)` and `as_i32()` if `IntType = "i32"`, or `from_u32(10)` and `as_u32()` if
       `IntType = "u32"`, etc.
+- **`impl TryFrom<<IntType>>`**: Enables `MyEnum::try_from(value)` for integer-to-variant conversion (unit enums only).
+  Returns `Result<Self, ()>` — `Err(())` if the value is not a valid discriminant.
 
 ### `See examples in the repository for more information.`
 
@@ -103,7 +106,7 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
   ```toml
   [dependencies]
   rand = "0.10"
-  enum_ext = { version = "0.5.1", features = ["random"] }
+  enum_ext = { version = "0.6", features = ["random"] }
   ```
 
 ## Rust Version Policy
@@ -112,7 +115,9 @@ This crate supports optional features that can be enabled in your `Cargo.toml`:
 - Minimum supported Rust version (MSRV) is **Rust 1.85.0**.
 - MSRV may be bumped in minor releases when required by edition, dependency, or macro-internals updates.
 
-Assigning attributes vary slightly depending on the macro used.
+## Assigning Attributes
+
+Assigning attributes varies slightly depending on the macro used.
 
 When using `enum_extend`, the attribute is applied directly in the tag:
 
@@ -321,10 +326,10 @@ enums below.
 
 Requirements and recommendations:
 
-- Every complex enum variant must declare an explicit discriminant expression (for example, A(u32) = 4, B((u32, i16)) =
-  8). The macro will emit a compile error if any payload-carrying variant is missing a discriminant.
-- The integer representation (#[repr(..)]) is added automatically when you specify IntType, or when discriminants are
-  present. If you do not specify IntType, the default conversion target is usize and as_usize will be generated.
+- Every complex enum variant must declare an explicit discriminant expression (for example, `A(u32) = 4`,
+  `B((u32, i16)) = 8`). The macro will emit a compile error if any payload-carrying variant is missing a discriminant.
+- The integer representation (`#[repr(..)]`) is added automatically when you specify IntType, or when discriminants are
+  present. If you do not specify IntType, the default conversion target is usize and `as_usize` will be generated.
 
 What is generated for complex enums:
 
@@ -336,7 +341,7 @@ What is generated for complex enums:
 - Omitted methods (not generated for complex enums because they require constructing values without payloads):
     - list(), iter(), slice(), range(), first_n(), last_n()
     - from_ordinal(), ref_from_ordinal(), next(), previous(), next_linear(), previous_linear()
-    - `from_<IntType>(...)`, `impl From<<IntType>> for YourEnum`
+    - `from_<IntType>(...)`, `impl TryFrom<<IntType>>`
     - from_pascal_spaced(...), from_snake_case(...), from_kebab_case(...), variant_names()
     - random() helpers (feature = "random")
 
@@ -374,5 +379,3 @@ fn main() {
 ## Changelog
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
-
-
