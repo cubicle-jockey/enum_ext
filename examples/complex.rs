@@ -44,7 +44,7 @@ fn attribute_macro_with_inttype() {
 
     // Note: Construction-based helpers are intentionally omitted for complex enums:
     // - list()/iter(), from_ordinal()/ref_from_ordinal(), next()/previous(),
-    // - from_<IntType>(), impl From<<IntType>>, from_* string conversions, variant_names(),
+    // - from_<IntType>(), impl TryFrom<<IntType>>, from_* string conversions, variant_names(),
     // - batch functions (slice/range/first_n/last_n), and random helpers.
 }
 
@@ -99,4 +99,24 @@ fn main() {
     proc_macro_with_inttype();
 
     println!("All complex enum examples ran successfully.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_attribute_macro_with_inttype() {
+        attribute_macro_with_inttype();
+    }
+
+    #[test]
+    fn test_attribute_macro_default_usize() {
+        attribute_macro_default_usize();
+    }
+
+    #[test]
+    fn test_proc_macro_with_inttype() {
+        proc_macro_with_inttype();
+    }
 }

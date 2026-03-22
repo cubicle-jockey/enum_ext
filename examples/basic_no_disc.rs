@@ -1,7 +1,5 @@
 #![allow(unused, dead_code)]
 use enum_ext::{enum_ext, enum_extend};
-#[cfg(feature = "random")]
-use rand::RngExt;
 
 fn main() {
     // Both the `enum_ext` and `enum_extend` macros provide the same functionality. They only differ in the way they are called.
@@ -274,6 +272,30 @@ fn string_case_example() {
         TicketStatus::from_kebab_case("final-code-review"),
         Some(TicketStatus::FinalCodeReview)
     );
+
+    // variant_name() returns the exact variant identifier as a string
+    assert_eq!(
+        TicketStatus::FinalCodeReview.variant_name(),
+        "FinalCodeReview"
+    );
+
+    // ************************************************************************** //
+    // *** From here down just prints a summary of what this example covered. *** //
+    // ************************************************************************** //
+
+    print_eq_line();
+    println!("string case example");
+    print_dash_line();
+    println!("{}", TicketStatus::pretty_print());
+    for v in TicketStatus::iter() {
+        println!(
+            "{:?} => snake: \"{}\", kebab: \"{}\", variant_name: \"{}\"",
+            v,
+            v.snake_case(),
+            v.kebab_case(),
+            v.variant_name()
+        );
+    }
 }
 
 fn navigation_and_validation_example() {
@@ -301,6 +323,26 @@ fn navigation_and_validation_example() {
     assert!(Stage::Three.is_last());
     assert!(Stage::One.comes_before(&Stage::Three));
     assert!(Stage::Three.comes_after(&Stage::One));
+
+    // ************************************************************************** //
+    // *** From here down just prints a summary of what this example covered. *** //
+    // ************************************************************************** //
+
+    print_eq_line();
+    println!("navigation and validation example");
+    print_dash_line();
+    println!("{}", Stage::pretty_print());
+    println!("Stage::One.next() = {:?}", Stage::One.next());
+    println!("Stage::Three.next() = {:?} (wraps)", Stage::Three.next());
+    println!(
+        "Stage::Three.next_linear() = {:?}",
+        Stage::Three.next_linear()
+    );
+    println!("Stage::One.is_first() = {}", Stage::One.is_first());
+    println!(
+        "Stage::One.comes_before(&Stage::Three) = {}",
+        Stage::One.comes_before(&Stage::Three)
+    );
 }
 
 fn filtering_batch_and_metadata_example() {
@@ -433,5 +475,9 @@ mod tests {
     #[test]
     fn filtering_batch_and_metadata_example_test() {
         filtering_batch_and_metadata_example();
+    }
+    #[test]
+    fn pretty_print_example_test() {
+        pretty_print_example();
     }
 }
