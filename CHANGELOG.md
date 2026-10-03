@@ -1,5 +1,9 @@
 # Changelog
 
+### v0.6.1
+
+- Updated syn requirement from 2.0.117 to 3.0.6
+
 ### v0.6.0
 
 - **Breaking:** Replaced `impl From<IntType>` with `impl TryFrom<IntType>` for enums with discriminants.
@@ -31,8 +35,8 @@
 
 ### v0.5.2
 
-- Added and expanded `trybuild` UI compile-fail coverage to lock in macro diagnostics and edge-case validation
-  (invalid `IntType`, duplicate `enum_def`, `#[enum_extend]` on non-enums, and complex payload variants missing
+- Added and expanded `trybuild` UI compile-fail coverage to lock in macro diagnostics and edge-case validation (invalid
+  `IntType`, duplicate `enum_def`, `#[enum_extend]` on non-enums, and complex payload variants missing
   explicit discriminants).
 - Improved macro maintainability by refactoring parts of expansion plumbing in `core` (including cleaner parsed-variant
   destructuring flow).
